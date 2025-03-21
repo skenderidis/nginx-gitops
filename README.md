@@ -81,8 +81,8 @@ The **`spec`** field defines the high-level configuration for an application. Th
 
 | Field              | Description | Type     | Required |
 |-------------------|-------------|---------|----------|
-| [host](#spec-host)            | The hostname (domain name) of the server. | `string` | Yes |
-| `alternative_hosts` | An optional list of additional domain names that this VirtualServer should respond to. | `array` of `string` | No |
+| **spec.host**| The hostname (domain name) that the application serves. It should be unique across all configurations that are deployed on the same NGINX. The configuration supports also wildcard domains. <br>Expected values: <br>&nbsp;&nbsp; - myapp.example.com<br> &nbsp;&nbsp;&nbsp;-"*.example.com"<br> &nbsp;&nbsp;&nbsp;-myapp | `string` | Yes |
+| [spec.alternative_hosts](#specalternative_hosts) | An optional list of additional domain names that this application should respond to. | `array` of `string` | No |
 | `listen`          | Specifies the port number NGINX should listen on. Defaults to `80` for HTTP and `443` for HTTPS. | `integer` | No |
 | `tls`            | Defines TLS termination settings, including the certificate name and supported protocols. | `object` | No |
 | `server_snippets` | Allows custom NGINX directives to be added to the server block configuration. | `string` | No |
@@ -91,21 +91,38 @@ The **`spec`** field defines the high-level configuration for an application. Th
 | `upstreams`      | Defines backend servers that NGINX will load balance traffic to, including settings like timeouts, load balancing method, and session persistence. | `array` of `object` | Yes |
 
 
-## spec host
-The `host` field specifies the primary domain that the application serves, while `alternative_hosts` allows additional domains to be mapped to the same configuration.
- and spec.alternative_hosts
+## Spec.host 
+
+
+Example:
 ```yaml
 spec:
   host: my-app.example.com
+```
+> Note: . 
+
+| Field              | Description | Type     | Required |  Expected Values |
+|-------------------|-------------|---------|----------|----------|
+| `host` |The primary domain name for the server. It should be unique across configurations.|`string` | Yes | myapp.example.com<br>'*.example.com'<br>myapp|
+
+
+## Spec.alternative_hosts 
+The `alternative_hosts` field specifies the alternative domains that the application serves. These domains must also be unique across all configurations that are deployed on the same NGINX.
+
+Example:
+```yaml
+spec:
   alternative_hosts:
     - backup.example.com
     - staging.example.com
 ```
+> Note: The configuration supports also wildcard domains. 
 
-| Field              | Description | Type     | Required |
-|-------------------|-------------|---------|----------|
-| `host` |The primary domain name for the server. It should be unique across configurations. Supports wildcard domains (e.g., *.example.com).|`string` | Yes |
-|`alternative_hosts`|A list of additional domain names that this VirtualServer should respond to. These domains will share the same routing and upstream rules | `array` of `string` | Yes |
+
+| Field              | Description | Type     | Required |  Expected Values |
+|-------------------|-------------|---------|----------|----------|
+| `alternative_hosts` | Alternative domains.|`string` | Yes | myapp.example.com<br>'*.example.com'<br>myapp|
+
 
 
 ## Spec.listen
