@@ -1,0 +1,356 @@
+{# ########   Macro to create proxy_pass configuration   ############   #}
+{% macro generate_proxy_pass(proxy, requestheaders_pass_origin, internal, path) %}
+    {% for up in nginx.spec.upstreams %}
+      {% if up.name == proxy.upstream %}
+        {% if internal %} 
+      internal;
+        {% if proxy.rewritepath %}
+      rewrite ^ $request_uri_no_args;
+      rewrite "^{{path}}(.*)$" "{{path}}$1" break;
+      proxy_pass {{ "https" if up.tls is defined and up.tls.enable else "http" }}://{{ nginx.template }}_{{ nginx.name }}_{{ proxy.upstream }};
+        {% else %}
+      proxy_pass {{ "https" if up.tls is defined and up.tls.enable else "http" }}://{{ nginx.template }}_{{ nginx.name }}_{{ proxy.upstream }}$request_uri;    
+        {% endif %}
+        {% else %}
+      proxy_pass {{ "https" if up.tls is defined and up.tls.enable else "http" }}://{{ nginx.template }}_{{ nginx.name }}_{{ proxy.upstream }}{% if proxy.rewritepath %}{{ proxy.rewritepath }}{% endif %};
+        {% endif %}
+
+        {% if up.connect_timeout %}
+      proxy_connect_timeout {{up.connect_timeout}};
+        {% endif %}
+        {% if up.read_timeout %}
+      proxy_read_timeout {{up.read_timeout}};
+        {% endif %}
+        {% if up.send_timeout %}
+      proxy_send_timeout {{up.send_timeout}};
+        {% endif %}
+        {% if up.client_max_body_size %}
+      client_max_body_size {{up.client_max_body_size}};
+        {% endif %}
+        {% if up.proxy_buffering %}
+      proxy_buffering {{ "on" if up.proxy_buffering else "off" }};;
+        {% endif %}
+        {% if up.buffer_size %}
+      proxy_buffer_size {{up.buffer_size}};
+        {% endif %}
+        {% if up.buffers %}
+      proxy_buffers {{up.buffers.number}} {{up.buffers.size}};
+        {% endif %}
+        {% if up.next_upstream %}
+      proxy_next_upstream {{up.next_upstream}};
+        {% endif %}
+        {% if up.upstream_timeout %}
+      proxy_next_upstream_timeout {{up.upstream_timeout}};
+        {% endif %}
+        {% if up.upstream_tries %}
+      proxy_next_upstream_tries {{up.upstream_tries}};
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Host $host;
+      proxy_set_header X-Forwarded-Port $server_port;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header Host "$host";
+
+    {% if proxy.requestheaders and proxy.requestheaders.set %}
+      {% for header in proxy.requestheaders.set %}
+      proxy_set_header {{ header.name }} "{{ header.value }}";
+      {% endfor %}
+    {% endif %}
+      proxy_pass_request_headers {{ "on" if requestheaders_pass_origin else "off" }};
+    {% if proxy.responseheaders and proxy.responseheaders.add %}
+        {% for header in proxy.responseheaders.add %}
+      add_header {{ header.name }} "{{ header.value }}" {% if header.always %}always{% endif %};
+        {% endfor %}
+    {% endif %}
+    {% if proxy.responseheaders and proxy.responseheaders.hide %}
+        {% for header in proxy.responseheaders.hide %}
+      proxy_hide_header {{ header.name }};
+        {% endfor %}
+    {% endif %}
+    {% if proxy.responseheaders and proxy.responseheaders.pass %}
+        {% for header in proxy.responseheaders.pass %}
+      proxy_pass_header {{ header.name }};
+        {% endfor %}
+    {% endif %}
+    {% if proxy.responseheaders and proxy.responseheaders.ignore %}
+      proxy_ignore_headers {% for header in proxy.responseheaders.ignore %}{{header.name}} {% endfor %};
+    {% endif %}
+{% endmacro %}
+{# ########   Macro to create error page configuration   ############   #}
+{% macro generate_error_page() %}
+  {% for route in nginx.spec.routes %}
+    {% set outer_index = loop.index %}
+    {% if route.errorpages is defined and route.errorpages %}
+      {% for error_page in route.errorpages %}
+        {% if error_page.return %}
+      location @error_page_{{ outer_index }}_{{ loop.index }} {
+        default_type {% if error_page.return.type %}"{{error_page.return.type}}"{% else %}"text/plain"{% endif %};
+          {% if error_page.return.headers %}
+            {% for header in error_page.return.headers %}
+        add_header {{ header.name }} "{{ header.value }}";
+            {% endfor %}
+          {% endif %}
+    
+        # status code is ignored here, using 0
+        return 0 "{{ error_page.return.body | replace('\n', '\\n') }}";
+      }
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+{# ########   Macro to create split locations  ############   #}
+{% macro generate_split_location() %}
+  {% for route in nginx.spec.routes %}
+    {% set outer_index = loop.index %}
+    {% if route.splits is defined and route.splits %}
+    location {{route.path }} {
+      rewrite ^ ${{ nginx.template }}_{{ nginx.name }}_splits_{{ outer_index }} last;
+    }
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+{# ########   Macro to create matches locations  ############   #}
+{% macro generate_matches_location() %}
+  {% for route in nginx.spec.routes %}
+    {% set outer_index = loop.index %}
+      {% if route.matches is defined and route.matches %}
+    location {{route.path }} {
+      rewrite ^ ${{ nginx.template }}_{{ nginx.name }}_matches_{{ outer_index }} last;
+    }
+    {% endif %}
+  {% endfor %}  
+{% endmacro %}
+{# ########   Macro to generate gzip config  ############   #}
+{% macro generate_gunzip(gunzip) %}
+    gzip on;
+      {% if gunzip.gzip_types %}
+    gzip_types {{gunzip.gzip_types | join(" ") }};
+      {% endif %}
+      {% if gunzip.gzip_proxied %}
+    gzip_proxied {{gunzip.gzip_proxied | join(" ") }};
+      {% endif %}
+      {% if gunzip.gzip_min_length %}
+    gzip_min_length {{gunzip.gzip_min_length}};
+      {% endif %}
+{% endmacro %}
+{# ########   Macro to generate health_location   ############   #}
+{% macro generate_health_location() %}
+    {% for upstream in nginx.spec.upstreams %}
+      {% set outer_index = loop.index %}
+        {% if upstream.healthcheck is defined and upstream.healthcheck %}
+    location @hc-{{ nginx.template }}_{{ nginx.name }}_{{ upstream.name }} {
+          {% for header in upstream.headers %}
+        proxy_set_header {{ header.name }} "{{ header.value }}";
+          {% endfor %}
+          {% if upstream.connect_timeout %}
+      proxy_connect_timeout {{upstream.connect_timeout}};
+          {% endif %}
+          {% if upstream.read_timeout %}
+      proxy_read_timeout {{upstream.read_timeout}};
+          {% endif %}
+          {% if upstream.send_timeout %}
+      proxy_send_timeout {{upstream.send_timeout}};
+          {% endif %}
+      proxy_pass {{ "https" if upstream.tls is defined and upstream.tls.enable else "http" }}://{{ nginx.template }}_{{ nginx.name }}_{{ upstream.name }};
+      health_check 
+          {%- if upstream.healthcheck.path %} uri={{ upstream.healthcheck.path }} {%- endif -%}
+          {%- if upstream.healthcheck.port %} port={{ upstream.healthcheck.port }} {%- endif -%}
+          {%- if upstream.healthcheck.interval %} interval={{ upstream.healthcheck.interval }} {%- endif -%}
+          {%- if upstream.healthcheck.jitter %} jitter={{ upstream.healthcheck.jitter }} {%- endif -%}
+          {%- if upstream.healthcheck.fails %} fails={{ upstream.healthcheck.fails }} {%- endif -%}
+          {%- if upstream.healthcheck.passes %} passes={{ upstream.healthcheck.passes }} {% endif %}
+          {%- if upstream.healthcheck.match %} match={{ nginx.template }}_{{ nginx.name }}_{{ upstream.name }}_match {% endif %}
+          {%- if upstream.healthcheck.mandatory %} mandatory {% endif %}
+          {%- if upstream.healthcheck.persistent %} persistent {% endif %}
+          {%- if upstream.healthcheck.keepalive_time %} keepalive_time={{upstream.healthcheck.keepalive_time}}{% endif %};
+    }
+        {% endif %}
+    {% endfor %}
+{% endmacro %}
+{# ########   Macro to generate split_clients   ############   #}
+{% macro generate_split_clients() %}
+  {% if nginx.spec.routes %}
+      {% for route in nginx.spec.routes %}
+        {% set outer_index = loop.index %}
+        {% if route.splits is defined and route.splits %}
+      split_clients $request_id {{nginx.template}}_{{nginx.name}}_splits_{{ outer_index }} {
+          {% for split in route.splits %}
+            {{split.weight}}% /internal_location_splits_{{ outer_index }}_split_{{ loop.index }} 
+          {% endfor %}
+      }
+        {% endif %}
+      {% endfor %}
+  {% endif %}
+{% endmacro %}
+{# ########   Macro to generate map_for_matches configuration   ############   #}
+{% macro generate_map_for_matches() %}
+  {% if nginx.spec.routes %}
+      {% for route in nginx.spec.routes %}
+        {% set matches_list = [] %}
+        {% set outer_index = loop.index %}
+        {% if route.matches is defined and route.matches %}
+          {% for match in route.matches %}
+            {% set key = "" %}
+            {% if match.condition.header %}
+              {% set key = "$http_"~match.condition.value %}
+            {% elif match.condition.cookie %}
+              {% set key = "$cookie_"~match.condition.value %}
+            {% elif match.condition.variable %}
+              {% set key = match.condition.variable %}
+            {% else %}
+              {% set key = "WRONG CONDITION" %}
+            {% endif %}
+      map {{key}} ${{nginx.template}}_{{nginx.name}}_match_{{outer_index}}_matches_{{ loop.index }} {
+        "{{match.condition.value}}" 1;
+        default 0;
+      }
+          {# Append new value to matches_list #}
+          {% set _ = matches_list.append("$" ~nginx.template ~ "_" ~ nginx.name ~ "_match_" ~ outer_index ~ "_matches_" ~ loop.index) %}
+          {%- endfor -%}
+          {# Convert list to a single string, separated by a space (or comma if preferred) #}
+          {% set match_join = matches_list | join(" ") %}
+      map {{ match_join }} ${{nginx.template}}_{{nginx.name}}_match_{{outer_index}} {
+          {% for match in route.matches %}
+        ~^{{ "0" * loop.index0 }}1 /internal_location_matches_{{outer_index}}_match_{{ loop.index }};
+          {% endfor %}
+        default /internal_location_matches_{{outer_index}}_default;
+      }
+        {% endif %}
+      {% endfor %}
+  {% endif %}
+{% endmacro %}
+{# ########   Macro to create health match  ############   #}
+{% macro generate_health_match() %}
+  {% for upstream in nginx.spec.upstreams %}
+    {% if upstream.healthcheck.match is defined and upstream.healthcheck.match %}
+      match {{ nginx.template }}_{{ nginx.name }}_{{ upstream.name }}_match {
+      {% if upstream.healthcheck.match.status %}
+        status {{upstream.healthcheck.match.status}};
+      {% endif %}
+      {% if upstream.healthcheck.match.header %}
+        header {{upstream.healthcheck.match.header}};
+      {% endif %}
+      {% if upstream.healthcheck.match.status %}
+        body {{upstream.healthcheck.match.body}};
+      {% endif %}
+      }
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+{# --------------------------------------------------- #}
+{# --------------------------------------------------- #}
+{# --------------------------------------------------- #}
+{% for u in nginx.spec.upstreams %}
+upstream {{nginx.template}}_{{nginx.name}}_{{ u.name }} {
+    zone {{nginx.template}}_{{nginx.name}}_{{ u.name }} {% if u.zone_size %}{{ u.zone_size }}{% else %}512k{% endif %};
+    {% if u.lb_method %}
+    {{ u.lb_method }};
+    {% endif %}
+    {% if u.queue and u.queue.size %}
+    queue {{ u.queue.size }} timeout={% if u.queue.timeout %}{{ u.queue.timeout }}{% else %}60s{% endif %};
+    {% endif %}
+    {% if u.keep_alive %}
+    keepalive {{ u.keep_alive }};
+    {% endif %}
+    {% for s in u.servers %}
+        {% set max_conns = s.max_conns if s.max_conns is defined else u.max_conns if u.max_conns is defined else '0' %}
+        {% set slow_start = s.slow_start if s.slow_start is defined else u.slow_start if u.slow_start is defined else '' %}
+        {% set fail_timeout = s.fail_timeout if s.fail_timeout is defined else u.fail_timeout if u.fail_timeout is defined else '10s' %}
+        {% set max_fails = s.max_fails if s.max_fails is defined else u.max_fails if u.max_fails is defined else '1' %}
+    server {{ s.address }}
+        {%- if max_conns %} max_conns={{ max_conns }} {%- endif -%}
+        {%- if slow_start %} slow_start={{ slow_start }} {%- endif -%}
+        {%- if fail_timeout %} fail_timeout={{ fail_timeout }} {%- endif -%}
+        {%- if s.weight is defined %} weight={{ s.weight }} {%- endif -%}
+        {%- if s.backup %} backup {%- endif -%}
+        {%- if s.down %} down{% endif %}
+        {%- if s.resolve is defined and s.resolve.service %} service={{s.resolve.service}}{% endif %}
+        {%- if s.resolve is defined and s.resolve.enable %} resolve{% endif %};
+    {% endfor %}
+
+    {% if u.sessioncookie and u.sessioncookie.name %}
+    sticky cookie {{ u.sessioncookie.name }}{% if u.sessioncookie.expires %} expires={{ u.sessioncookie.expires }}{% endif %}{% if u.sessioncookie.domain %} domain={{ u.sessioncookie.domain }}{% endif %}{% if u.sessioncookie.httponly %} httponly{% endif %}{% if u.sessioncookie.samesite %} samesite={{ u.sessioncookie.samesite | lower }}{% endif %}{% if u.sessioncookie.secure %} secure{% endif %}{% if u.sessioncookie.path %} path={{ u.sessioncookie.path }}{% endif %};
+    {% endif %}
+}
+{% endfor %}
+{# ########   upstream configuration   ############   #}
+
+{{ generate_split_clients() }}
+{# ########   matches configuration   ############   #}
+{{ generate_map_for_matches() }}
+{{ generate_health_match() }}
+
+{% if nginx.spec.host %}
+server {
+    {% set ssl_enabled = nginx.spec.tls is defined and nginx.spec.tls.enable is defined and nginx.spec.tls.enable %}
+    {% if nginx.spec.listen %}
+    listen {{ nginx.spec.listen }}{% if ssl_enabled %} ssl{% endif %}
+    {% else %}
+    listen {% if ssl_enabled %}443 ssl{% else %}80{% endif %}
+    {% endif %};
+    server_name {{ nginx.spec.host }}{% if nginx.spec.alternative_hosts%} {{ nginx.spec.alternative_hosts | join(" ") }}{% endif %};
+    {% if ssl_enabled and nginx.spec.tls.cert_name %}
+    ssl_certificate     /etc/nginx/secrets/{{ nginx.spec.tls.cert_name  }}.crt;
+    ssl_certificate_key /etc/nginx/secrets/{{ nginx.spec.tls.cert_name }}.key;
+        {% if nginx.spec.tls.protocols%}
+    ssl_protocols       {{ nginx.spec.tls.protocols | join(" ") }}
+        {% endif %}
+    {% endif %}
+    {% if nginx.spec.server_snippets is defined and nginx.spec.server_snippets %}
+    {{ nginx.spec.server_snippets }}
+    {% endif %}
+    {% if nginx.spec.gunzip is defined and nginx.spec.gunzip.enable is defined and nginx.spec.gunzip.enable %}
+{{generate_gunzip (nginx.spec.gunzip)}}
+    {%- endif -%}
+
+{{generate_error_page ()}}
+{{generate_split_location ()}}
+{{generate_matches_location ()}}
+{{generate_health_location()}}
+
+    {% for route in nginx.spec.routes %}
+      {% set outer_index = loop.index %}
+      {% set requestheaders_pass_origin = true if route.proxy is not defined or route.proxy.requestheaders is not defined or route.proxy.requestheaders.pass_origin_headers is not defined else route.proxy.requestheaders.pass_origin %}
+      {% if route.splits %}
+        {% for split in route.splits %}
+    location /internal_location_splits_{{ outer_index }}_split_{{ loop.index }} {
+        {{generate_proxy_pass(split.proxy, requestheaders_pass_origin, true, route.path ) }}
+    }
+        {% endfor %}
+      {% elif route.matches %}
+        {% for match in route.matches %}
+    location /internal_location_matches_{{ outer_index }}_match_{{ loop.index }} {
+        {{generate_proxy_pass(match.condition.proxy, requestheaders_pass_origin, true, route.path ) }}
+    }
+        {% endfor %}
+      {% else %}
+    location {{ route.path }} {
+          {% if route.location_snippets is defined and route.location_snippets %}
+      {{ route.location_snippets }}
+          {% endif %}
+          {%- if route.proxy -%}
+        {{generate_proxy_pass(route.proxy, requestheaders_pass_origin, false) }}
+          {% elif route.redirect %}
+            return {% if route.redirect.code %}{{ route.redirect.code }}{% else %}301{% endif %} {{ route.redirect.url }};
+          {% elif route.return %}
+        default_type {% if route.return.type %}{{ route.return.type }}{% else %}text/plain{% endif %};
+        return {% if route.return.code %}{{ route.return.code }}{% else %}200{% endif %} "{{ route.return.body | replace('\n', '\\n') }}";
+            {% if route.return.headers %}
+              {% for header in route.return.headers %}
+        add_header {{ header.name }} "{{ header.value }}";
+              {% endfor %}
+            {% endif %}
+          {% endif %}
+    }
+      {% endif %}
+    
+    {% endfor -%}
+}
+{% endif %}

@@ -1,0 +1,432 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "template": { "type": "string", "enum": ["vs"] },
+    "name": { "type": "string" },
+    "spec": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string", "format": "hostname" },
+        "server_snippets": { "type": "string" },
+        "alternative_hosts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "listen": { "type": "integer", "minimum":1, "maximum":65535},
+        "tls": {
+          "type": "object",
+          "properties": {
+            "cert_name": { "type": "string" },
+            "enable": { "type": "boolean" },
+            "protocols": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"] }
+            }
+          },
+          "required": ["cert_name", "enable"],
+          "additionalProperties": false
+        },
+        "gunzip": {
+          "type": "object",
+          "properties": {
+            "enable": { "type": "boolean" },
+            "gzip_types": { "type": "array", "items": { "type": "string" } },
+            "gzip_min_length": { "type": "integer" },
+            "gzip_proxied": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["enable"],
+          "additionalProperties": false
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "location_snippets": { "type": "string" },
+              "proxy": { "$ref": "#/definitions/proxy" },
+              "redirect": {
+                "type": "object",
+                "properties": {
+                  "url": { "type": "string" },
+                  "code": { "type": "integer", "enum":[301, 302, 303, 307, 308], "description": "Must be a valid HTTP redirect status code."}
+                },
+                "required": ["url"],
+                "additionalProperties": false
+              },
+              "return": {
+                "type": "object",
+                "properties": {
+                  "code": { "type": "integer", "minimum":100, "maximum": 599, "description": "Must be a valid HTTP status code (1xx-5xx)."},
+                  "type": { "type": "string" },
+                  "body": { "type": "string" },
+                  "headers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string" },
+                        "value": { "type": "string" }
+                      },
+                      "required": ["name", "value"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["body"],
+                "additionalProperties": false
+              },
+              "splits": { "$ref": "#/definitions/splits" },
+              "matches": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/matchCondition" }
+              },           
+              "errorpages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "codes": { "type": "array", "items": { "type": "integer" }, "minimum": 100, "maximum": 599 },
+                    "redirect": {
+                      "type": "object",
+                      "properties": {
+                        "code": { "type": "integer", "enum":[301, 302, 303, 307, 308], "description": "Must be a valid HTTP redirect status code."},
+                        "url": { "type": "string" }
+                      },
+                      "required": ["url"],
+                      "additionalProperties": false
+                    },
+                    "return": {
+                      "type": "object",
+                      "properties": {
+                        "code": { "type": "integer", "minimum":100, "maximum": 599, "description": "Must be a valid HTTP status code (1xx-5xx)."},
+                        "type": { "type": "string" },
+                        "body": { "type": "string" },
+                        "headers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": { "type": "string" },
+                              "value": { "type": "string" }
+                            },
+                            "required": ["name", "value"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": ["body"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "oneOf": [
+                    { 
+                      "required": ["redirect"],
+                      "errorMessage": "Required fields: Only one of 'redirect' or 'return' must be specified."
+                    },
+                    { 
+                      "required": ["return"],
+                      "errorMessage": "Required fields: Only one of 'redirect' or 'return' must be specified."
+                    }
+                  ],
+                  "required": ["codes"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["path"],
+            "additionalProperties": false
+          }
+        },
+        "upstreams": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "lb_method": { "type": "string" },
+              "zone_size": { 
+                "oneOf": [
+                  { "type": "integer" },
+                  { "type": "string", "pattern": "^\\d+(k|m|K|M)?$" }
+                ]
+              },
+              "sessioncookie": { "$ref": "#/definitions/sessioncookie" },
+              "keep_alive": { "type": "integer" },
+              "slow_start": { "type": "string", "pattern": "^\\d+(s)$"},
+              "fail_timeout": { "type": "string", "pattern": "^\\d+(s)$"},
+              "next_upstream": { "type": "string"},
+              "next_upstream_tries": { "type": "string", "pattern": "^\\d+(s)$"},
+              "next_upstream_timeout": { "type": "string", "pattern": "^\\d+(s)$"},
+              "connect_timeout": { "type": "string", "pattern": "^\\d+(s)$"},
+              "read_timeout": { "type": "string", "pattern": "^\\d+(s)$"},
+              "send_timeout": { "type": "string", "pattern": "^\\d+(s)$"},
+              "max_conns": { "type": "integer" },
+              "max_fails": { "type": "integer" },
+              "buffering": { "type": "boolean" },
+              "buffer_size": { "type": "string", "pattern": "^\\d+(m|M|k|K)?$"},
+              "client_max_body_size": { "type": "string", "pattern": "^\\d+(m|M|k|K)?$"},
+              "tls": {
+                "type": "object",
+                "properties": {
+                  "enable": { "type": "boolean" }
+                },
+                "required": ["enable"],
+                "additionalProperties": false
+              },
+              "buffers": {
+                "type": "object",
+                "properties": {
+                  "number": { "type": "integer" },
+                  "size": { "type": "string" }
+                },
+                "required": ["number","size" ],
+                "additionalProperties": false
+              },               
+              "queue": {
+                "type": "object",
+                "properties": {
+                  "size": { "type": "integer" },
+                  "timeout": { "type": "string" }
+                },
+                "required": ["size", "timeout"],
+                "additionalProperties": false
+              },
+              "servers": {
+               "type": "array",
+               "items": {
+                "type": "object",
+                "properties": {
+                  "address": { "type": "string" },
+                  "slow_start": { "type": "string", "pattern": "^\\d+(s)$" },
+                  "fail_timeout": { "type": "string", "pattern": "^\\d+(s)$" },
+                  "weight": { "type": "integer" },
+                  "backup": { "type": "boolean" },
+                  "max_fails": { "type": "integer" },
+                  "max_conns": { "type": "integer" },
+                  "down": { "type": "boolean" },
+                  "resolve": {
+                    "type": "object",
+                    "properties": {
+                      "enable": { "type": "boolean" },
+                      "service": { "type": "string" }
+                    },
+                    "required": ["enable"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["address"],
+                "additionalProperties": false
+              }               
+
+              },
+              "healthcheck": {"$ref": "#/definitions/healthcheck"}              
+            },
+            "required": ["name", "servers"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["host", "routes", "upstreams"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["template", "name", "spec"],
+  "additionalProperties": false,
+
+  "definitions": {
+    "proxy": {
+      "type": "object",
+      "properties": {
+        "upstream": { "type": "string" },
+        "rewritepath": { "type": "string" },
+        "requestheaders": {
+          "type": "object",
+          "properties": {
+            "pass_origin_headers": { "type": "boolean" },
+            "set": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "value": { "type": "string" }
+                },
+                "required": ["name", "value"]
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "responseheaders": {
+          "type": "object",
+          "properties": {
+            "add": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "value": { "type": "string" },
+                  "always": { "type": "boolean" }
+                },
+                "required": ["name", "value"],
+                "additionalProperties": false
+              }
+            },
+            "hide": { 
+              "type": "array", 
+              "items": { 
+                "type": "object", 
+                "properties": { 
+                  "name": { "type": "string" } 
+                }, 
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            },
+            "pass": { 
+              "type": "array", 
+              "items": { 
+                "type": "object", 
+                "properties": { 
+                  "name": { "type": "string" } 
+                }, 
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            },
+            "ignore": { 
+              "type": "array", 
+              "items": { 
+                "type": "object", 
+                "properties": { 
+                  "name": { "type": "string", "enum": [ "X-Accel-Redirect", "X-Accel-Expires", "X-Accel-Limit-Rate", "X-Accel-Buffering", "X-Accel-Charset", "Expires", "Cache-Control", "Set-Cookie", "Vary"] } 
+                },
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+       "required": ["upstream"],
+       "additionalProperties": false
+    },
+    "splits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "proxy": { "$ref": "#/definitions/proxy" }
+        },
+        "required": ["weight", "proxy"],
+        "additionalProperties": false
+      }
+    },
+    "matchCondition": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "type": "object",
+          "properties": {
+            "cookie": { "type": "string" },
+            "header": { "type": "string" },
+            "variable": { "type": "string" },
+            "value": { "type": "string" },
+            "proxy": { "$ref": "#/definitions/proxy" }
+          },
+          "required": ["value", "proxy"],
+          "oneOf": [
+            { "required": ["cookie"] },
+            { "required": ["header"] },
+            { "required": ["variable"] }
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": ["condition"],
+      "additionalProperties": false
+    },
+    "sessioncookie": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "path": { "type": "string" },
+        "expires": { "type": "string" },
+        "domain": { "type": "string" },
+        "httponly": { "type": "boolean" },
+        "secure": { "type": "boolean" },
+        "samesite": { "type": "string", "enum": ["strict", "lax", "none"] }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "healthcheck": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "interval": { "type": "string" },
+        "jitter": { "type": "string" },
+        "fails": { "type": "integer" },
+        "passes": { "type": "integer" },
+        "port": { "type": "integer" },
+        "connect_timeout": { "type": "string" },
+        "read_timeout": { "type": "string" },
+        "send_timeout": { "type": "string" },
+        "mandatory": { "type": "boolean" },
+        "persistent": { "type": "boolean" },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "enable": { "type": "boolean" }
+          },
+          "required": ["enable"],
+          "additionalProperties": false
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string"},
+              "value": { "type": "string"}
+            },
+            "required": ["name", "value"],
+            "additionalProperties": false
+          }
+        },        
+        "keepalive_time": { "type": "string" },
+        "match": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string" },
+            "header": { "type": "string" },
+            "body": { "type": "string" } 
+          },
+          "anyOf": [
+            { 
+              "required": ["status"],
+              "errorMessage": "At least one of 'status', 'header' or 'body' must be specified."
+            },
+            { 
+              "required": ["header"],
+              "errorMessage": "At least one of 'status', 'header' or 'body' must be specified."
+            },
+            { 
+              "required": ["body"],
+              "errorMessage": "At least one of 'status', 'header' or 'body' must be specified."
+            }
+          ],
+          "additionalProperties": false
+        }
+
+      },
+      "additionalProperties": false
+    }     
+  }
+
+}

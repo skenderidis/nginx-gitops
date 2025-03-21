@@ -1,0 +1,126 @@
+name: app1
+template: vs
+spec: 
+  host: test.com
+  alternative_hosts:
+    - cafe1.example.com
+    - cafe2.example.com
+  listen: 443
+  tls: 
+    cert_name: test
+    enable: true
+    protocols:
+      - TLSv1.2
+  routes:
+  - path: /abc
+    proxy: 
+      upstream: upstream_1
+      responseheaders:
+        add:
+        - name: Host
+          value: Value11
+          always: true       
+  - path: /test
+    splits:
+    - weight: 80
+      proxy: 
+        upstream: upstream_1
+        rewritepath: /abc
+    - weight: 20
+      proxy: 
+        upstream: upstream_2
+  - path: /test2
+    matches:
+    - condition:
+        cookie: user
+        value: john
+        proxy:
+          upstream: echo222
+    - condition:
+        header: ttt
+        value: xxx
+        proxy:
+          upstream: echo
+    - condition:
+        variable: $request_method
+        value: POST
+        proxy:
+          upstream: echo  
+    proxy: 
+      upstream: upstream_1
+  - path: /aaa
+    return:
+      code: 200
+      type: text/plain
+      body: "Hello World\n"
+      headers:
+      - name: x-coffee
+        value: espresso   
+
+  upstreams:
+  - name: upstream_1
+    lb_method: least_conn
+    zone_size: 512k
+    connect_timeout: 30s
+    read_timeout: 30s
+    send_timeout: 30s
+    next_upstream: error timeout
+    next_upstream_timeout: 30s
+    next_upstream_tries: 20s
+    client_max_body_size: 1m
+    buffering: true
+    buffers:
+      number: 4
+      size: 8K
+    buffer_size: 32k
+    tls: 
+      enable: false
+    healthcheck:
+      path: /healthz
+      interval: 20s
+      jitter: 3s
+      fails: 5
+      passes: 5
+      port: 8080
+      tls:
+        enable: true
+      connect_timeout: 10s
+      read_timeout: 10s
+      send_timeout: 10s
+      headers:
+      - name: Host
+        value: my.service
+      match: 
+        status: "! 500"
+        header: "! Refresh;"
+        body: "~ \"Welcome to nginx!\""
+      mandatory: true
+      persistent: true
+      keepalive_time: 60s 
+    sessioncookie:
+      name: srv_id
+      path: /
+      expires: 1h
+      domain: .example.com
+      httponly: true
+      secure: true
+      samesite: strict 
+    queue:
+      size: 30
+      timeout: 60s
+    servers:
+      - address: backend122.f5k8s.net
+      - address: backend1.f5k8s.net
+        slow_start: 60s
+        fail_timeout: 4s
+        weight: 5
+        backup: true
+      - address: backend2.f5k8s.net
+        max_fails: 2
+        max_conns: 6
+        fail_timeout: 41s
+      - address: backend3.f5k8s.net
+        down: true
+        resolve:
+          enable: true
+          service: http.tcp
