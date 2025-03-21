@@ -81,7 +81,7 @@ The **`spec`** field defines the high-level configuration for an application. Th
 
 | Field              | Description | Type     | Required |
 |-------------------|-------------|---------|----------|
-| `host`            | The host (domain name) of the server. Must be a valid subdomain. If using a wildcard domain like `*.example.com`, it must be quoted. This value should be unique across configurations. | `string` | Yes |
+| `[host](#spec.host)`            | The hostname (domain name) of the server. | `string` | Yes |
 | `alternative_hosts` | An optional list of additional domain names that this VirtualServer should respond to. | `array` of `string` | No |
 | `listen`          | Specifies the port number NGINX should listen on. Defaults to `80` for HTTP and `443` for HTTPS. | `integer` | No |
 | `tls`            | Defines TLS termination settings, including the certificate name and supported protocols. | `object` | No |
@@ -91,9 +91,9 @@ The **`spec`** field defines the high-level configuration for an application. Th
 | `upstreams`      | Defines backend servers that NGINX will load balance traffic to, including settings like timeouts, load balancing method, and session persistence. | `array` of `object` | Yes |
 
 
-## spec.host and spec.alternative_hosts
+## spec.host
 The `host` field specifies the primary domain that the application serves, while `alternative_hosts` allows additional domains to be mapped to the same configuration.
-
+ and spec.alternative_hosts
 ```yaml
 spec:
   host: my-app.example.com
