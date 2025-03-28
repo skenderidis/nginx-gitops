@@ -128,16 +128,16 @@
   {% endfor %}  
 {% endmacro %}
 {# ########   Macro to generate gzip config  ############   #}
-{% macro generate_gunzip(gunzip) %}
+{% macro generate_gunzip() %}
     gzip on;
-      {% if gunzip.gzip_types %}
-    gzip_types {{gunzip.gzip_types | join(" ") }};
+      {% if nginx.spec.gunzip.gzip_types %}
+    gzip_types {{nginx.spec.gunzip.gzip_types | join(" ") }};
       {% endif %}
-      {% if gunzip.gzip_proxied %}
-    gzip_proxied {{gunzip.gzip_proxied | join(" ") }};
+      {% if nginx.spec.gunzip.gzip_proxied %}
+    gzip_proxied {{nginx.spec.gunzip.gzip_proxied | join(" ") }};
       {% endif %}
-      {% if gunzip.gzip_min_length %}
-    gzip_min_length {{gunzip.gzip_min_length}};
+      {% if nginx.spec.gunzip.gzip_min_length %}
+    gzip_min_length {{nginx.spec.gunzip.gzip_min_length}};
       {% endif %}
 {% endmacro %}
 {# ########   Macro to generate health_location   ############   #}
@@ -180,11 +180,11 @@
       {% for route in nginx.spec.routes %}
         {% set outer_index = loop.index %}
         {% if route.splits is defined and route.splits %}
-      split_clients $request_id {{nginx.template}}_{{nginx.name}}_splits_{{ outer_index }} {
+    split_clients $request_id {{nginx.template}}_{{nginx.name}}_splits_{{ outer_index }} {
           {% for split in route.splits %}
-            {{split.weight}}% /internal_location_splits_{{ outer_index }}_split_{{ loop.index }} 
+      {{split.weight}}% /internal_location_splits_{{ outer_index }}_split_{{ loop.index }} 
           {% endfor %}
-      }
+    }
         {% endif %}
       {% endfor %}
   {% endif %}
@@ -207,21 +207,21 @@
             {% else %}
               {% set key = "WRONG CONDITION" %}
             {% endif %}
-      map {{key}} ${{nginx.template}}_{{nginx.name}}_match_{{outer_index}}_matches_{{ loop.index }} {
-        "{{match.condition.value}}" 1;
-        default 0;
-      }
+    map {{key}} ${{nginx.template}}_{{nginx.name}}_match_{{outer_index}}_matches_{{ loop.index }} {
+      "{{match.condition.value}}" 1;
+      default 0;
+    }
           {# Append new value to matches_list #}
           {% set _ = matches_list.append("$" ~nginx.template ~ "_" ~ nginx.name ~ "_match_" ~ outer_index ~ "_matches_" ~ loop.index) %}
           {%- endfor -%}
           {# Convert list to a single string, separated by a space (or comma if preferred) #}
           {% set match_join = matches_list | join(" ") %}
-      map {{ match_join }} ${{nginx.template}}_{{nginx.name}}_match_{{outer_index}} {
+    map {{ match_join }} ${{nginx.template}}_{{nginx.name}}_match_{{outer_index}} {
           {% for match in route.matches %}
-        ~^{{ "0" * loop.index0 }}1 /internal_location_matches_{{outer_index}}_match_{{ loop.index }};
+      ~^{{ "0" * loop.index0 }}1 /internal_location_matches_{{outer_index}}_match_{{ loop.index }};
           {% endfor %}
-        default /internal_location_matches_{{outer_index}}_default;
-      }
+      default /internal_location_matches_{{outer_index}}_default;
+    }
         {% endif %}
       {% endfor %}
   {% endif %}
@@ -229,20 +229,98 @@
 {# ########   Macro to create health match  ############   #}
 {% macro generate_health_match() %}
   {% for upstream in nginx.spec.upstreams %}
-    {% if upstream.healthcheck.match is defined and upstream.healthcheck.match %}
-      match {{ nginx.template }}_{{ nginx.name }}_{{ upstream.name }}_match {
+    {% if upstream.healthcheck is defined and upstream.healthcheck.match is defined and upstream.healthcheck.match %}
+    match {{ nginx.template }}_{{ nginx.name }}_{{ upstream.name }}_match {
       {% if upstream.healthcheck.match.status %}
-        status {{upstream.healthcheck.match.status}};
+      status {{upstream.healthcheck.match.status}};
       {% endif %}
       {% if upstream.healthcheck.match.header %}
-        header {{upstream.healthcheck.match.header}};
+      header {{upstream.healthcheck.match.header}};
       {% endif %}
       {% if upstream.healthcheck.match.status %}
-        body {{upstream.healthcheck.match.body}};
+      body {{upstream.healthcheck.match.body}};
       {% endif %}
-      }
+    }
     {% endif %}
   {% endfor %}
+{% endmacro %}
+{# ########   Macro to create API key map ############   #}
+{% macro generate_api_key_map() %}
+  {% if nginx.spec.apiKey is defined %}
+    map $apikey_auth_token $apikey_auth_client_name_{{nginx.name}}_api_key_policy {
+        default "";
+        {% for key in nginx.spec.apiKey.key %}
+        "{{key.value}}" "{{key.name}}";
+        {%endfor%}
+    }
+  {%- endif -%}
+{% endmacro %}
+{# ########   Macro to create API key  ############   #}
+{% macro generate_api_key() %}
+  {% if nginx.spec.apiKey is defined %}
+
+    set $apikey_auth_local_map "apikey_auth_client_name_{{nginx.name}}_api_key_policy";
+    set $apikey_auth_token $apikey_auth_hash;
+    auth_request /_validate_apikey_njs;
+    set $header_query_value "
+      {%- if nginx.spec.apiKey.suppliedIn.header -%}{% for header in nginx.spec.apiKey.suppliedIn.header %}${http_x_{{ header|replace("-", "_")}}}{%endfor%} {%- endif -%}
+      {%- if nginx.spec.apiKey.suppliedIn.query -%} {% for query in nginx.spec.apiKey.suppliedIn.query %}${arg_{{query|replace("-", "_")}}}{%endfor%} {%- endif -%}
+    ";
+  {%- endif -%}
+{% endmacro %}
+{# ########   Macro to create Deny/Allow lists  ############   #}
+{% macro generate_allow_deny_lists() %}
+  {% if nginx.spec.accessControl is defined %}
+    {% if nginx.spec.accessControl.allow is defined %}
+      {% for entry in nginx.spec.accessControl.allow %}
+
+    allow {{entry}};
+      {%endfor%}
+    deny all;
+    {% elif nginx.spec.accessControl.deny is defined %}
+      {% for entry in nginx.spec.accessControl.allow %}
+      
+    deny {{entry}};
+      {%endfor%}
+    allow all;
+    {%endif%}
+  {%- endif -%}
+{% endmacro %}
+{# ########   Macro to create rateLimit zones  ############   #}
+{% macro generate_rate_limit_zone() %}
+  {% if nginx.spec.rateLimit is defined %}
+    limit_req_zone {{nginx.spec.rateLimit.id}} zone={{nginx.template}}_{{nginx.name}}_{{nginx.spec.rateLimit.name}}-limit-policy:{{ nginx.spec.rateLimit.zoneSize}} rate={{ nginx.spec.rateLimit.rate}};
+  {% endif %}
+{% endmacro %}
+{% macro generate_rate_limit() %}
+  {% if nginx.spec.rateLimit is defined %}
+    {% if  nginx.spec.rateLimit.dryRun %}
+    limit_req_dry_run on;
+    {%else%}
+    limit_req_dry_run off;
+    {% endif %}
+    {% if  nginx.spec.rateLimit.rejectCode %}
+    limit_req_status {{ nginx.spec.rateLimit.rejectCode}};
+    {%else%}
+    limit_req_status 503;
+    {% endif %}
+    {% if  nginx.spec.rateLimit.logLevel %}
+    limit_req_log_level {{ nginx.spec.rateLimit.logLevel}};
+    {%else%}
+    limit_req_log_level info;
+    {% endif %}
+    limit_req zone={{nginx.template}}_{{nginx.name}}_{{ nginx.spec.rateLimit.name}}_rate-limit-policy {% if  nginx.spec.rateLimit.burst %}burst={{ nginx.spec.rateLimit.burst}}{%endif%}
+    {% if  nginx.spec.rateLimit.noDelay %}
+    nodelay;
+    {%else%} 
+    {%- if  nginx.spec.rateLimit.delay %} delay={{ nginx.spec.rateLimit.delay}}{% endif %} 
+    {%- endif -%};
+  {% endif %}
+{% endmacro %}
+{% macro generate_jwt() %}
+  {% if nginx.spec.rateLimit is defined %}
+
+  {% endif %}
 {% endmacro %}
 {# --------------------------------------------------- #}
 {# --------------------------------------------------- #}
@@ -286,6 +364,9 @@ upstream {{nginx.template}}_{{nginx.name}}_{{ u.name }} {
 {# ########   matches configuration   ############   #}
 {{ generate_map_for_matches() }}
 {{ generate_health_match() }}
+{{generate_api_key_map()}}
+{{generate_rate_limit_zone()}}
+
 
 {% if nginx.spec.host %}
 server {
@@ -297,23 +378,35 @@ server {
     {% endif %};
     server_name {{ nginx.spec.host }}{% if nginx.spec.alternative_hosts%} {{ nginx.spec.alternative_hosts | join(" ") }}{% endif %};
     {% if ssl_enabled and nginx.spec.tls.cert_name %}
-    ssl_certificate     /etc/nginx/secrets/{{ nginx.spec.tls.cert_name  }}.crt;
-    ssl_certificate_key /etc/nginx/secrets/{{ nginx.spec.tls.cert_name }}.key;
-        {% if nginx.spec.tls.protocols%}
-    ssl_protocols       {{ nginx.spec.tls.protocols | join(" ") }}
+    ssl_certificate     {% if nginx.spec.cert_location%}{{ nginx.spec.cert_location }}{% else %}/etc/nginx/secrets/{% endif %}{{ nginx.spec.tls.cert_name  }}.crt;
+    ssl_certificate_key {% if nginx.spec.cert_location%}{{ nginx.spec.cert_location }}{% else %}/etc/nginx/secrets/{% endif %}{{ nginx.spec.tls.cert_name }}.key;
+        {% if nginx.spec.tls.protocols %}
+    ssl_protocols       {{ nginx.spec.tls.protocols | join(" ") }};
+        {% endif %}
+        {% if nginx.spec.tls.ciphers %}
+    ssl_ciphers       {{ nginx.spec.tls.ciphers }};
+        {% endif %}
+        {% if nginx.spec.tls.session_cache %}
+    ssl_session_cache       {{ nginx.spec.tls.session_cache }};
+        {% endif %}
+        {% if nginx.spec.tls.timeout %}
+    ssl_session_timeout     {{ nginx.spec.tls.session_timeout }};
         {% endif %}
     {% endif %}
     {% if nginx.spec.server_snippets is defined and nginx.spec.server_snippets %}
     {{ nginx.spec.server_snippets }}
     {% endif %}
     {% if nginx.spec.gunzip is defined and nginx.spec.gunzip.enable is defined and nginx.spec.gunzip.enable %}
-{{generate_gunzip (nginx.spec.gunzip)}}
+{{generate_gunzip ()}}
     {%- endif -%}
 
-{{generate_error_page ()}}
-{{generate_split_location ()}}
-{{generate_matches_location ()}}
+{{generate_api_key()}}
+{{generate_allow_deny_lists()}}
+{{generate_error_page()}}
+{{generate_split_location()}}
+{{generate_matches_location()}}
 {{generate_health_location()}}
+{{generate_rate_limit()}}
 
     {% for route in nginx.spec.routes %}
       {% set outer_index = loop.index %}
@@ -330,6 +423,9 @@ server {
         {{generate_proxy_pass(match.condition.proxy, requestheaders_pass_origin, true, route.path ) }}
     }
         {% endfor %}
+    location /internal_location_matches_{{ outer_index }}_default {
+        {{generate_proxy_pass(route.proxy, requestheaders_pass_origin, true, route.path ) }}
+    }
       {% else %}
     location {{ route.path }} {
           {% if route.location_snippets is defined and route.location_snippets %}

@@ -34,6 +34,12 @@ def validate_yaml(yaml_file, schema_file):
         print(f"🔹 Data Path: {list(e.path)}")
         print(f"🔹 Schema Path: {list(e.schema_path)}")
         print("------------------------------------------")
+        print(f"🔹 Schema Path: {e.instance}")
+
+       # print(f"🔹 Schema Path: {e}")
+        error_message = e.schema.get("errorMessage", "No custom error message found.")
+        print(error_message)
+
         sys.exit(1)  # Exit the script on validation failure
 
 if __name__ == "__main__":

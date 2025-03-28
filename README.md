@@ -81,10 +81,10 @@ The **`spec`** field defines the high-level configuration for an application. Th
 
 | Field              | Description | Type     | Required |
 |-------------------|-------------|---------|----------|
-| **spec.host**| The hostname (domain name) that the application serves. It should be unique across all configurations that are deployed on the same NGINX. The configuration supports also wildcard domains. <br>Expected values: <br>&nbsp;&nbsp; - myapp.example.com<br> &nbsp;&nbsp;&nbsp;-"*.example.com"<br> &nbsp;&nbsp;&nbsp;-myapp | `string` | Yes |
-| [spec.alternative_hosts](#specalternative_hosts) | An optional list of additional domain names that this application should respond to. | `array` of `string` | No |
-| `listen`          | Specifies the port number NGINX should listen on. Defaults to `80` for HTTP and `443` for HTTPS. | `integer` | No |
-| `tls`            | Defines TLS termination settings, including the certificate name and supported protocols. | `object` | No |
+| ***[spec.host](#spechost)***| The hostname (domain name) that the application serves. It should be unique across all configurations that are deployed on the same NGINX. The configuration supports also wildcard domains. <br>Expected values: <br>&nbsp;&nbsp; - myapp.example.com<br> &nbsp;&nbsp;&nbsp;-"*.example.com"<br> &nbsp;&nbsp;&nbsp;-myapp | `string` | Yes |
+| ***[spec.alternative_hosts](#specalternative_hosts)*** | An optional list of additional domain names that this application serves. These domains must also be unique across all configurations that are deployed on the same NGINX. | `array` of `string` | No |
+| ***[spec.listen](#speclisten)*** | Specifies the port number NGINX should listen on. Defaults to `80` for HTTP and `443` for HTTPS. | `integer` | No |
+| ***[spec.tls](#spectls)***            | Defines the TLS termination settings, including the certificate name and supported protocols and ciphers. For more details go to the [tls](#spectls) section | object ([tls](#spectls)) | No |
 | `server_snippets` | Allows custom NGINX directives to be added to the server block configuration. | `string` | No |
 | `gunzip`         | Enables or disables compression responses for clients. Defaults to `off` if not set. | `object` | No |
 | `routes`         | Defines URL paths and how requests to those paths are handled, including proxying, redirects, or custom responses. | `array` of `object` | Yes |
@@ -92,22 +92,14 @@ The **`spec`** field defines the high-level configuration for an application. Th
 
 
 ## Spec.host 
-
-
 Example:
 ```yaml
 spec:
   host: my-app.example.com
 ```
-> Note: . 
-
-| Field              | Description | Type     | Required |  Expected Values |
-|-------------------|-------------|---------|----------|----------|
-| `host` |The primary domain name for the server. It should be unique across configurations.|`string` | Yes | myapp.example.com<br>'*.example.com'<br>myapp|
-
 
 ## Spec.alternative_hosts 
-The `alternative_hosts` field specifies the alternative domains that the application serves. These domains must also be unique across all configurations that are deployed on the same NGINX.
+The `alternative_hosts` field specifies the alternative domains that the application serves. .
 
 Example:
 ```yaml
@@ -116,31 +108,29 @@ spec:
     - backup.example.com
     - staging.example.com
 ```
-> Note: The configuration supports also wildcard domains. 
 
-
-| Field              | Description | Type     | Required |  Expected Values |
-|-------------------|-------------|---------|----------|----------|
-| `alternative_hosts` | Alternative domains.|`string` | Yes | myapp.example.com<br>'*.example.com'<br>myapp|
-
-
-
-## Spec.listen
-
-The listen field determines the port on which NGINX listens for incoming connections. If omitted, NGINX defaults to port 80 (HTTP) or port 443 (HTTPS with TLS enabled).
-
+## Spec.listen 
+Example:
 ```yaml
 spec:
-  listen: 8080
-  ```
-
-| Field              | Description | Type     | Required |
-| `listen` |Specifies the port number NGINX should listen on. Defaults to `80` for HTTP and `443` for HTTPS (when `tls`.`enable` is **true**).|`integer` | false |
-
+  listen: 80
+```
 
 ## Spec.tls
+The tls section configures SSL/TLS settings for securing connections. 
 
-The tls section configures SSL/TLS settings for securing connections. If enabled, NGINX will require a certificate and private key.
+| Field                          | Description                      | Type           | Required |
+|--------------------------------|----------------------------------|----------------|----------|
+| `spec.tls.cert_name`           | The name of the TLS certificate. | `string`       | Yes      |
+| `spec.tls.cert_location`       | The filesystem path where the TLS certificate is stored. If you have deployed the certificate with NIM, please check the directory of the certificate. **Default value:** `/etc/nginx/ssl/` | `string`       | Yes      |
+| `spec.tls.enable`              | Flag to enable or disable TLS configuration.   | `boolean`      | Yes      |
+| `spec.tls.protocols`           | A list of supported TLS protocol versions <br> **Allowed Values**: SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3.  <br>    More information can be found on (https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_protocols)     | `list[string]` | No      |
+| `spec.tls.ssl_ciphers`         | The ciphers to be used for secure communication, defined in OpenSSL cipher list format. <br> **Examples:** <br> - HIGH:!aNULL:!MD5 <br> - ALL:!aNULL:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP;  <br>    More information can be found on (https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_ciphers)  | `string`       | Yes      |
+| `spec.tls.ssl_session_cache`   | Configuration for the shared SSL session cache, including cache name and size. <br> **Examples:** <br> - builtin <br> - builtin:1000 <br> - shared:SSL:10m <br> More information can be found on (https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_session_cache) | `string`       | Yes      |
+| `spec.tls.ssl_session_timeout` | Specifies a time during which a client may reuse the session parameters. **Examples:** <br> - 5m <br> - 10m <br> - 60m <br> More information can be found on (https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_session_timeout) | `string` | No |
+
+
+Example of the tls section
 ```yaml
 spec:
   tls:
@@ -152,6 +142,6 @@ spec:
       - TLSv1.3
     ssl_ciphers: HIGH:!aNULL:!MD5
     ssl_session_cache: shared:SSL:10m
-    ssl_session_timeout: 10m
+    ssl_session_timeout: 15m
 ```
 
