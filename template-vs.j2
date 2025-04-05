@@ -318,8 +318,15 @@
   {% endif %}
 {% endmacro %}
 {% macro generate_jwt() %}
-  {% if nginx.spec.rateLimit is defined %}
+  {% if nginx.spec.jwt is defined %}
+    {% if nginx.spec.jwt.jwksURI is defined %}
+    
+    {% else %}
 
+    auth_jwt "{{nginx.spec.jwt.realm}}" token={{nginx.spec.jwt.token}};
+    auth_jwt_key_file {% if nginx.spec.jwt.secret_path is defined %}{{nginx.spec.jwt.secret_path}}{%else%}/etc/nginx/secrets{%endif%}{{nginx.spec.jwt.secret}};
+
+    {% endif %}
   {% endif %}
 {% endmacro %}
 {# --------------------------------------------------- #}
@@ -402,6 +409,7 @@ server {
 
 {{generate_api_key()}}
 {{generate_allow_deny_lists()}}
+{{generate_jwt()}}
 {{generate_error_page()}}
 {{generate_split_location()}}
 {{generate_matches_location()}}

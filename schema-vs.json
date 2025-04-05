@@ -43,6 +43,7 @@
           "additionalProperties": false
         },
         "apiKey": {"type": "object"},
+        "jwt": {"type": "object"},
         "accessControl": {"type": "object"},
         "rateLimit": {"type": "object"},
         "routes": {
