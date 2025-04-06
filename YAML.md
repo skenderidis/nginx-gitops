@@ -389,11 +389,55 @@ spec:
       - 203.0.113.0/24
 ```
 
-
 > [!IMPORTANT]
 > - If allow is set, all IPs not in that list are blocked.
 > - If only deny is set, all IPs not in that list are allowed.
 > - If both allow and deny are omitted, there is no IP filtering.
 > - Applies at the server block level and affects all routes under that host.
 
+
+## spec.rateLimit
+
+The rateLimit field defines a request rate-limiting policy for incoming client traffic. This helps prevent abuse, brute-force attacks, or overload conditions by throttling excessive requests based on an identifier like IP address.
+
+You can configure burst tolerance, delays, dry-run mode, and custom rejection codes.
+
+
+| Field                  | Description                                                                      | Type     | Required | Examples                  |
+|------------------------|----------------------------------------------------------------------------------|----------|----------|---------------------------|
+| `rateLimit.name`       | Unique name for the rate-limiting zone.                                         | `string` | Yes      | `"default"`               |
+| `rateLimit.rate`       | Rate limit expressed in requests per time (e.g., `r/s`, `r/m`).                 | `string` | Yes      | `"1r/s"`                  |
+| `rateLimit.id`         | Variable used to identify the client (e.g., `$binary_remote_addr`).            | `string` | Yes      | `"$binary_remote_addr"`   |
+| `rateLimit.zoneSize`   | Size of the memory zone allocated for tracking limits (e.g., `10M`).            | `string` | Yes      | `"10M"`                   |
+| `rateLimit.delay`      | Time (in seconds) to delay excess requests before rejecting.                   | `integer`| No       | `30`                      |
+| `rateLimit.noDelay`    | If `true`, no delay is applied — excess requests are immediately dropped.       | `boolean`| No       | `false`                   |
+| `rateLimit.burst`      | Number of requests allowed to exceed the rate in a burst.                      | `integer`| No       | `8`                       |
+| `rateLimit.logLevel`   | Log level for rate-limit rejections.                                            | `string` | No       | `"info"`                  |
+| `rateLimit.dryRun`     | If `true`, requests are not rejected, but logging occurs as if they were.       | `boolean`| No       | `true`                    |
+| `rateLimit.rejectCode` | HTTP status code to return when requests are rejected.                          | `integer`| No       | `429`, `503`, `504`       |
+
+```yml
+spec:
+  rateLimit:
+    name: default
+    rate: 1r/s
+    id: $binary_remote_addr
+    zoneSize: 10M
+    delay: 30
+    noDelay: false
+    burst: 8
+    logLevel: info
+    dryRun: true
+    rejectCode: 504
+```
+
+
+> [!IMPORTANT]
+> - Defines a rate-limiting zone using limit_req_zone.
+> - Applies throttling based on the id (typically the client IP).
+> - If the request rate exceeds the limit:
+>   - Burst requests are temporarily allowed (up to `burst` value).
+>   - Requests can be delayed or rejected based on `noDelay`.
+> - If `dryRun` is `true`, requests are not blocked, but violations are logged.
+> - `rejectCode` allows custom HTTP responses when limits are hit (defaults to `503` if not set).
 
