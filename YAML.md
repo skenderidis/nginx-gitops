@@ -33,9 +33,18 @@ spec:
 ## Table of Contents
 
 - [Root Structure](#root-structure)
-- [Spec](#spec)
-- [Spec.host](#host)
-- [Spec.tls](#team)
+- [Spec]
+- [spec.host](#spechost)
+- [spec.alternative_hosts](#specalternative_hosts)
+- [Spec.listen](#speclisten)
+- [Spec.tls](#spec)
+- [Spec.server_snippets](#specserver_snippets)
+
+
+
+- [Spec.tls](#spec)
+- [Spec.tls](#spec)
+
 - [Spec.jwt](#faq)
 - [Spec.accessControl](#support)
 - [Spec.License](#license)
@@ -48,8 +57,8 @@ The Root structure of the YAML consists of three main fields:
 
 | Field              | Description | Type     | Required |
 |-------------------|-------------|---------|----------|
-|   name | This value will be used as the name of the application and needs to be unique across all configurations. | `string` | Yes |
-| template | This is the name of the JINJA2 template that will be used to convert the values to NGINX configuration. <br> ***Note:*** At the moment only a single template has been developed which is called `vs` | `string` | Yes |
+|   `name` | This value will be used as the name of the application and needs to be unique across all configurations. | `string` | Yes |
+| `template` | This is the name of the JINJA2 template that will be used to convert the values to NGINX configuration. <br> ***Note:*** At the moment only a single template has been developed which is called `vs` | `string` | Yes |
 |  [spec](#spec) | This is the main configuration block for the specific applications that is being published. | `object` | Yes |
 
 This is an example of the Root structure YAML:
@@ -93,8 +102,8 @@ The `host` field specifies the primary fully qualified domain name (FQDN) that t
 , as the asterisk can be misinterpreted by YAML parsers.
 
 
-| Field   | Description   | Type     | Required | Examples  |
-|---------|---------------|----------|----------|-----------|
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
 | `host`  | The primary domain name this server block is designed to handle. Must be a valid FQDN. | `string` | Yes      | `myapp.example.com`, <br>`"*.example.com"` |
 
 
@@ -142,18 +151,13 @@ spec:
 ## Spec.listen 
 The `listen` field defines the **port number** that NGINX should bind to for incoming connections in this server block configuration. It controls whether NGINX listens on HTTP (typically port 80) or HTTPS (port 443), or on a custom port for specific use cases (e.g., 8080 for internal apps).
 
-⚠️ Considerations: 
-
-
-This field provides flexibility when multiple configurations need to run on different ports on the same server.
-
-
 | Field| Description| Type| Required | Examples|
 |------|------------|-----|----------|---------|
 | `listen` | Port number to bind the server block configuration to. Defaults to `80` or `443` if omitted. Must be between `1` and `65535`. | integer  | No       | `80`, `443`, `8080` |
 
 > [!IMPORTANT]
 > - The value must be an integer between 1 and 65535.
+> - You can only configure one port number.
 > - If listen is not specified, it defaults to 80 or 443 depending on whether TLS is enabled.
 > - TLS-related settings (under spec.tls) determine whether the port is treated as secure.
 
@@ -176,21 +180,27 @@ The `tls` field defines the TLS (Transport Layer Security) settings for this ser
 This field allows you to control what protocols and ciphers are allowed, where certificates are stored, and how session handling is configured.
 
 
-| Field                 | Description                                                                                                    | Type           | Required | Examples                          |
-|----------------------|----------------------------------------------------------------------------------------------------------------|----------------|----------|-----------------------------------|
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
 | `tls.cert_name`      | Name of the certificate and key file (without extension). Files should be located in `/etc/nginx/secrets` or a custom path. | `string`       | Yes      | `"my-cert"`                       |
 | `tls.cert_location`  | Optional custom path prefix for the certificate and key files.                                                 | `string`       | No       | `"/custom/path/"`                 |
 | `tls.enable`         | Enables or disables TLS termination for this server block.                                                     | `boolean`      | Yes      | `true`, `false`                   |
-| `tls.protocols`      | List of allowed TLS protocol versions. <br> **Allowed Values**: SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3.       | `array` of `string`| No       | `["TLSv1.2", "TLSv1.3"]`          |
+| `tls.protocols`      | List of allowed TLS protocol versions. <br> **Allowed Values**: SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3.       | `array` of `string`| No       | `TLSv1.3`          |
 | `tls.ssl_ciphers`    | A string defining supported cipher suites.                                                                     | `string`       | No       | `"HIGH:!aNULL:!MD5"`              |
 | `tls.ssl_session_cache` | Configuration for the shared SSL session cache, including cache name and size.                              | `string`       | No       | `"shared:SSL:10m"`                |
 | `tls.ssl_session_timeout` | Timeout for cached SSL sessions (e.g., 5m, 10m, 1h).                                                      | `string`       | No       | `"10m"`                           |
 
-> [!NOTE] 
-> Note: More information can be found on https://nginx.org/en/docs/http/ngx_http_ssl_module.html
+
+> [!IMPORTANT] 
+> - When `enable` is **true**, NGINX listens on a secure port (e.g., 443) and serves HTTPS traffic.
+> - The specified `cert_name` must match actual files on disk:
+>    - `${cert_location}/<cert_name>.crt`
+>    - `${cert_location}/<cert_name>.key`
+> - If `cert_location` is not defined, it defaults to `/etc/nginx/secrets/`.
+> - You can restrict allowed **TLS versions** and define cipher policies to meet compliance (e.g., PCI-DSS).
 
 
-Example of the tls section
+**Example:**
 ```yaml
 name: app1
 template: vs
@@ -207,36 +217,26 @@ spec:
     ssl_session_timeout: 15m
 ```
 
-> [!IMPORTANT] 
-> - When `enable` is **true**, NGINX listens on a secure port (e.g., 443) and serves HTTPS traffic.
-> - The specified `cert_name` must match actual files on disk:
->    - `${cert_location}/<cert_name>.crt`
->    - `${cert_location}/<cert_name>.key`
-> - If `cert_location` is not defined, it defaults to `/etc/nginx/secrets/`.
-> - You can restrict allowed **TLS versions** and define cipher policies to meet compliance (e.g., PCI-DSS).
 
-
-
-## Spec.server_snippets
+## spec.server_snippets
 
 The `server_snippets` field allows you to inject custom NGINX directives directly into the generated server block configuration. This is especially useful for advanced or low-level configurations that are not directly supported by the YAML schema.
 
 This field gives operators full control to customize behavior such as logging, headers, variables, or security directives—without modifying the base template or schema.
 
-💡 Considerations: 
-- Injected snippets appear inside the server block of the generated NGINX configuration.
-- Accepts any raw NGINX directives supported at the server level.
-- Multiple lines can be defined using YAML’s multi-line | syntax.
-- This field is optional and has no default behavior if omitted.
 
-
-> ⚠️ Use with caution: Incorrect or unsupported directives may cause NGINX to fail on reload.
-
-| Field            | Description                                                                                                   | Type     | Required | Examples                                      |
-|------------------|---------------------------------------------------------------------------------------------------------------|----------|----------|-----------------------------------------------|
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
 | `server_snippets`| Injects raw NGINX directives into the generated server block. Useful for advanced configurations or overrides. | string   | No       | `"access_log /var/log/nginx/custom.log;"`      |
 
-Example of the tls section
+> [!IMPORTANT] 
+> - ⚠️ Use with caution: Incorrect or unsupported directives may cause NGINX to fail on reload.
+> - Injected snippets appear inside the server block of the generated NGINX configuration.
+> - Accepts any raw NGINX directives supported at the server level.
+> - Multiple lines can be defined using YAML’s multi-line | syntax.
+> - This field is optional and has no default behavior if omitted.
+
+Example:
 ```yaml
 name: app1
 template: vs
@@ -293,34 +293,16 @@ If no gzip_types are specified, NGINX uses a default set (but best practice is t
 
 ## Spec.apiKey
 
-The apiKey field enables API key-based authentication by validating client-supplied tokens against a configured list of valid keys. Clients can supply keys via headers or query parameters.
+The `apiKey` field enables API key-based authentication by validating client-supplied tokens against a configured list of valid keys. Clients can supply keys via **headers** or **query parameters**.
 
-If a match is found, the request is allowed to proceed; otherwise, it is denied. This mechanism is often used to control access to public APIs or internal services where fine-grained authentication (like JWT) is not required.
+If a match is found, the request is allowed to proceed; otherwise, it is denied. This mechanism is often used to control access to public APIs or internal services where fine-grained authentication (like **JWT**) is not required.
 
 
-| Field                       | Description                                                                                      | Type             | Required | Examples                              |
-|----------------------------|--------------------------------------------------------------------------------------------------|------------------|----------|---------------------------------------|
-| `apiKey.key`               | A list of valid API key name–value pairs.                                                        | array of object  | Yes      | See example below                     |
-| `apiKey.suppliedIn.header` | List of headers from which to extract API keys.                                                  | array of string  | No       | `["x-api-key", "x-auth-token"]`       |
-| `apiKey.suppliedIn.query`  | List of query parameters from which to extract API keys.                                         | array of string  | No       | `["key", "token"]`                    |
-
-Example:
-```yml
-spec:
-  apiKey:
-    key:
-      - name: test1
-        value: 123123123123
-      - name: test2
-        value: 123123123
-    suppliedIn:
-      header:
-        - "x-api-key"
-        - "x-auth-token"
-      query:
-        - "access_token"
-```
-
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
+| `apiKey.key`               | A list of valid API key name–value pairs.                                                        | `array` of `object`  | Yes      | See example below                     |
+| `apiKey.suppliedIn.header` | List of headers from which to extract API keys.                                                  | `array` of `string`  | No       | `["x-api-key", "x-auth-token"]`       |
+| `apiKey.suppliedIn.query`  | List of query parameters from which to extract API keys.                                         | `array` of `string`  | No       | `["key", "token"]`                    |
 
 > [!IMPORTANT]
 > Each key entry includes a name (for mapping or logging) and a value (used for validation).
@@ -330,22 +312,44 @@ spec:
 > This system supports multiple ways to deliver tokens — making it flexible for mobile apps, APIs, and legacy systems.
 
 
+**Example:**
+```yml
+spec:
+  apiKey:
+    key:
+      - name: test1
+        value: abc1234aa
+      - name: test2
+        value: abc8976cc
+    suppliedIn:
+      header:
+        - "x-api-key"
+        - "x-auth-token"
+      query:
+        - "access_token"
+```
+
+
 ## spec.jwt
-The jwt field enables JWT (JSON Web Token) authentication, validating incoming tokens for authenticity and access control. This is a robust and modern method of securing APIs, often used in microservices and zero-trust architectures.
+The `jwt` field enables **JWT (JSON Web Token) authentication**, validating incoming tokens for authenticity and access control. This is a robust and modern method of securing APIs, often used in microservices and zero-trust architectures.
 
-NGINX uses a specified secret (or a JWK URI) to validate the token's signature. If validation fails, the request is denied.
+NGINX uses a specified **secret** (or a **JWK URI**) to validate the token's signature. If validation fails, the request is denied.
 
-| Field               | Description                                                                                      | Type     | Required | Examples                      |
-|--------------------|--------------------------------------------------------------------------------------------------|----------|----------|-------------------------------|
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
 | `jwt.secret`        | Name of the file containing the secret key (usually mounted at `/etc/nginx/secrets`).           | `string` | Yes*     | `"jwt-secret"`                |
 | `jwt.secret_path`   | Path to the directory containing the secret file. Defaults to `/etc/nginx/secrets`.             | `string` | No       | `"/mnt/secrets/"`             |
 | `jwt.realm`         | The authentication realm used in the `WWW-Authenticate` header when a token is missing or invalid. | `string` | Yes      | `"My API"`                    |
 | `jwt.token`         | Variable from which to extract the JWT (e.g., `$http_authorization`, `$http_token`).            | `string` | Yes      | `"$http_token"`               |
 | `jwt.jwksURI`       | Optional URI pointing to a JWKS (JSON Web Key Set) endpoint for dynamic key verification.        | `string` | No       | `"https://auth.example.com/.well-known/jwks.json"` |
 
-> [!CAUTION]
-> Either secret or jwksURI must be specified.
-
+> [!IMPORTANT]
+> - ⚠️ Either `secret` or `jwksURI` must be specified. Not both
+> - If jwksURI is provided, NGINX dynamically fetches public keys to validate tokens signed with asymmetric algorithms.
+> - If secret is used, NGINX loads the secret key from the specified path and validates HMAC-signed tokens (e.g., HS256).
+> - The token field tells NGINX where to look for the JWT — usually in an HTTP header.
+> - When authentication fails, NGINX returns a 401 Unauthorized response and includes the configured realm in the header.
+> - Works seamlessly with auth_jwt directives under the hood.
 
 ```yml
 spec:
@@ -356,14 +360,6 @@ spec:
     token: $http_token
 ```
 
-> [!NOTE]
-> - If jwksURI is provided, NGINX dynamically fetches public keys to validate tokens signed with asymmetric algorithms.
-> - If secret is used, NGINX loads the secret key from the specified path and validates HMAC-signed tokens (e.g., HS256).
-> - The token field tells NGINX where to look for the JWT — usually in an HTTP header.
-> - When authentication fails, NGINX returns a 401 Unauthorized response and includes the configured realm in the header.
-> - Works seamlessly with auth_jwt directives under the hood.
-
-
 
 ## spec.accessControl
 
@@ -371,14 +367,18 @@ The accessControl field is used to control client IP-based access to the server 
 
 If allow rules are defined, all other IPs are implicitly denied. If only deny is defined, all others are implicitly allowed. If both are omitted, no IP restrictions are enforced.
 
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
+| `accessControl.allow` | List of allowed IPs or CIDR blocks. If specified, all others are denied. | `array` of `string` | No       | `["10.0.0.0/8", "192.168.1.100"]` |
+| `accessControl.deny`  | List of denied IPs or CIDR blocks. If specified, all others are allowed. | `array` of `string` | No       | `["203.0.113.0/24"]`              |
 
-| Field               | Description                                                         | Type           | Required | Examples                          |
-|--------------------|---------------------------------------------------------------------|----------------|----------|-----------------------------------|
-| `accessControl.allow` | List of allowed IPs or CIDR blocks. If specified, all others are denied. | array of string | No       | `["10.0.0.0/8", "192.168.1.100"]` |
-| `accessControl.deny`  | List of denied IPs or CIDR blocks. If specified, all others are allowed. | array of string | No       | `["203.0.113.0/24"]`              |
 
-> [!CAUTION]
-> Either `allow` or `deny` must be specified. In case both are defined, `allow` will supercede `deny`.
+> [!IMPORTANT]
+> - ⚠️ Either `allow` or `deny` must be specified. In case both are defined, `allow` will supercede `deny`.
+> - If allow is set, all IPs not in that list are blocked.
+> - If only deny is set, all IPs not in that list are allowed.
+> - If both allow and deny are omitted, there is no IP filtering.
+> - Applies at the server block level and affects all routes under that host.
 
 Example: 
 ```yml
@@ -390,13 +390,6 @@ spec:
       - 203.0.113.0/24
 ```
 
-> [!IMPORTANT]
-> - If allow is set, all IPs not in that list are blocked.
-> - If only deny is set, all IPs not in that list are allowed.
-> - If both allow and deny are omitted, there is no IP filtering.
-> - Applies at the server block level and affects all routes under that host.
-
-
 ## spec.rateLimit
 
 The rateLimit field defines a request rate-limiting policy for incoming client traffic. This helps prevent abuse, brute-force attacks, or overload conditions by throttling excessive requests based on an identifier like IP address.
@@ -404,8 +397,8 @@ The rateLimit field defines a request rate-limiting policy for incoming client t
 You can configure burst tolerance, delays, dry-run mode, and custom rejection codes.
 
 
-| Field                  | Description                                                                      | Type     | Required | Examples                  |
-|------------------------|----------------------------------------------------------------------------------|----------|----------|---------------------------|
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
 | `rateLimit.name`       | Unique name for the rate-limiting zone.                                         | `string` | Yes      | `"default"`               |
 | `rateLimit.rate`       | Rate limit expressed in requests per time (e.g., `r/s`, `r/m`).                 | `string` | Yes      | `"1r/s"`                  |
 | `rateLimit.id`         | Variable used to identify the client (e.g., `$binary_remote_addr`).            | `string` | Yes      | `"$binary_remote_addr"`   |
@@ -416,6 +409,17 @@ You can configure burst tolerance, delays, dry-run mode, and custom rejection co
 | `rateLimit.logLevel`   | Log level for rate-limit rejections.                                            | `string` | No       | `"info"`                  |
 | `rateLimit.dryRun`     | If `true`, requests are not rejected, but logging occurs as if they were.       | `boolean`| No       | `true`                    |
 | `rateLimit.rejectCode` | HTTP status code to return when requests are rejected.                          | `integer`| No       | `429`, `503`, `504`       |
+
+
+> [!IMPORTANT]
+> - Defines a rate-limiting zone using limit_req_zone.
+> - Applies throttling based on the id (typically the client IP).
+> - If the request rate exceeds the limit:
+>   - Burst requests are temporarily allowed (up to `burst` value).
+>   - Requests can be delayed or rejected based on `noDelay`.
+> - If `dryRun` is `true`, requests are not blocked, but violations are logged.
+> - `rejectCode` allows custom HTTP responses when limits are hit (defaults to `503` if not set).
+
 
 ```yml
 spec:
@@ -433,16 +437,6 @@ spec:
 ```
 
 
-> [!IMPORTANT]
-> - Defines a rate-limiting zone using limit_req_zone.
-> - Applies throttling based on the id (typically the client IP).
-> - If the request rate exceeds the limit:
->   - Burst requests are temporarily allowed (up to `burst` value).
->   - Requests can be delayed or rejected based on `noDelay`.
-> - If `dryRun` is `true`, requests are not blocked, but violations are logged.
-> - `rejectCode` allows custom HTTP responses when limits are hit (defaults to `503` if not set).
-
-
 
 # Spec.upstreams
 
@@ -450,29 +444,41 @@ The upstreams field defines one or more backend server groups that the NGINX ser
 
 You can think of each upstream as a named cluster of backend endpoints with its own logic for routing, retries, stickiness, and fault tolerance.
 
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
+| `name`                      | Unique name for the upstream group. Referenced by `routes.proxy.upstream`.                      | `string` | Yes  | `"backend_v1"`|
+| [servers](#specupstreamsservers)                   | List of backend server addresses and per-server settings.     | `array` of `object`   | Yes  | See example below            |
+| `lb_method`             | Load balancing method (e.g., `round_robin`, `least_conn`).                  | `string` | No | `"least_conn"` |
+| `connect_timeout`       | Max time to wait for a connection to a backend.                        | `string` | No | `"30s"`|
+| `read_timeout`          | Max time to wait for a response from the backend.                       | `string` | No | `"30s"`|
+| `send_timeout`          | Max time to wait when sending a request to the backend.                  | `string` | No | `"30s"`|
+| `zone_size`             | Shared memory size for load balancing state.                            | `string` or `int` | No | `"512k"` |
+| `buffering`             | Enable or disable proxy buffering.                                    | `boolean` | No | `true`, `false`|
+| `buffer_size`           | Size of the proxy buffer for reading responses.                     | `string` | No | `"32k"` |
+| `buffers.number`        | Number of proxy buffers.                                         | `integer` | No | `4` |
+| `buffers.size`          | Size of each proxy buffer.                            | `string` | No | `"8k"` |
+| `client_max_body_size`  | Max size of the request body accepted by this upstream.     | `string` | No | `"1m"` |
+| `tls.enable`            | If `true`, connect to the upstream using HTTPS.     | `boolean` | No | `false` |
+| `queue.size`            | Max number of requests to queue when all upstream servers are busy.   | `integer` | No | `30` |
+| `queue.timeout`         | Time a request can wait in the queue before timing out.    | `string` | No | `"60s"` |
+| [healthcheck](#specupstramshealthcheck) | Health check configuration to monitor upstream availability.   | `object` | No | See healthcheck section      |
+| [sessioncookie](#specupstreamssessioncookie) | Configuration for session stickiness.    | `string` | No | See sessionCookie section section|
 
-| Field                        | Description                                                                                      | Type              | Required | Examples                     |
-|-----------------------------|--------------------------------------------------------------------------------------------------|-------------------|----------|------------------------------|
-| `name`                      | Unique name for the upstream group. Referenced by `routes.proxy.upstream`.                      | `string`          | Yes      | `"backend_v1"`               |
-| `servers`                   | List of backend server addresses and per-server settings.                                       | array of object   | Yes      | See example below            |
-| `lb_method`                 | Load balancing method (e.g., `round_robin`, `least_conn`).                                      | `string`          | No       | `"least_conn"`               |
-| `connect_timeout`           | Max time to wait for a connection to a backend.                                                 | `string`          | No       | `"30s"`                      |
-| `read_timeout`              | Max time to wait for a response from the backend.                                               | `string`          | No       | `"30s"`                      |
-| `send_timeout`              | Max time to wait when sending a request to the backend.                                         | `string`          | No       | `"30s"`                      |
-| `zone_size`                 | Shared memory size for load balancing state.                                                    | `string` or `int` | No       | `"512k"`                     |
-| `buffering`                 | Enable or disable proxy buffering.                                                              | `boolean`         | No       | `true`, `false`              |
-| `buffer_size`              | Size of the proxy buffer for reading responses.                                                 | `string`          | No       | `"32k"`                      |
-| `buffers.number`            | Number of proxy buffers.                                                                        | `integer`         | No       | `4`                          |
-| `buffers.size`              | Size of each proxy buffer.                                                                      | `string`          | No       | `"8k"`                       |
-| `client_max_body_size`      | Max size of the request body accepted by this upstream.                                         | `string`          | No       | `"1m"`                       |
-| `tls.enable`                | If `true`, connect to the upstream using HTTPS.                                                 | `boolean`         | No       | `false`                      |
-| `queue.size`                | Max number of requests to queue when all upstream servers are busy.                             | `integer`         | No       | `30`                         |
-| `queue.timeout`             | Time a request can wait in the queue before timing out.                                         | `string`          | No       | `"60s"`                      |
-| `healthcheck`               | Health check configuration to monitor upstream availability.                                    | object            | No       | See healthcheck section      |
-| `sessioncookie.name`        | Cookie name used for session stickiness.                                                        | `string`          | No       | `"srv_id"`                   |
 
-> [!NOTE]
-> For full details on servers, sessioncookie, and healthcheck, see their dedicated sections.
+> [!IMPORTANT]
+> - Each upstream defines a **named pool of servers** with rules for how traffic is distributed.
+> - Traffic is proxied to these servers based on route configuration (e.g., `proxy.upstream: backend_v1`).
+> - Load balancing, timeouts, buffer limits, and body size restrictions can all be tuned here.
+> - When `tls.enable: true`, NGINX proxies traffic to the upstream using HTTPS.
+> - `sessioncookie` allows session stickiness, ensuring a client consistently hits the same backend.
+> - `queue` lets you queue up requests when all upstreams are busy — useful for spike protection.
+> - `healthcheck` allows proactive removal of unhealthy servers from the load balancing rotation.
+> - DNS `resolve` support with `service` name mapping
+> - Upstream servers can have per-server overrides like:
+>   - `weight`: traffic weighting
+>   - `slow_start`: gradual ramp-up
+>   - `fail_timeout`, `max_fails`, `max_conns`
+>   - `backup` and `down` flags
 
 
 ```yml
@@ -507,43 +513,32 @@ spec:
         - address: backend2.example.com
 ```
 
-
-
-> [!IMPORTANT]
-> - Each upstream defines a **named pool of servers** with rules for how traffic is distributed.
-> - Traffic is proxied to these servers based on route configuration (e.g., `proxy.upstream: backend_v1`).
-> - Load balancing, timeouts, buffer limits, and body size restrictions can all be tuned here.
-> - When `tls.enable: true`, NGINX proxies traffic to the upstream using HTTPS.
-> - `sessioncookie` allows session stickiness, ensuring a client consistently hits the same backend.
-> - `queue` lets you queue up requests when all upstreams are busy — useful for spike protection.
-> - `healthcheck` allows proactive removal of unhealthy servers from the load balancing rotation.
-> - DNS `resolve` support with `service` name mapping
-> - Upstream servers can have per-server overrides like:
->   - `weight`: traffic weighting
->   - `slow_start`: gradual ramp-up
->   - `fail_timeout`, `max_fails`, `max_conns`
->   - `backup` and `down` flags
-
-
-## spec.upsreams.servers
+## spec.upstreams.servers
 The `servers` field defines the individual backend servers within an upstream. Each entry represents a host (or IP) that will receive proxied traffic. You can assign per-server settings like weight, failure handling, backup role, and DNS resolution options.
 
 
 | Field            | Description                                                                 | Type     | Required | Examples                           |
 |------------------|-----------------------------------------------------------------------------|----------|----------|------------------------------------|
-| `address`        | Hostname or IP address of the backend server.                              | `string` | Yes      | `"backend1.example.com"`           |
-| `weight`         | Relative weight used for load balancing.                                   | `integer`| No       | `5`                                |
-| `slow_start`     | Time period during which traffic ramps up after a server becomes available. | `string` | No       | `"60s"`                            |
-| `fail_timeout`   | Time to wait before retrying a failed server.                              | `string` | No       | `"10s"`                            |
-| `max_fails`      | Max number of failed attempts before considering the server unavailable.   | `integer`| No       | `3`                                |
-| `max_conns`      | Maximum number of concurrent connections allowed to this server.           | `integer`| No       | `10`                               |
-| `backup`         | If `true`, this server is only used when primary servers are unavailable.  | `boolean`| No       | `true`                             |
-| `down`           | If `true`, the server is treated as permanently down.                      | `boolean`| No       | `true`                             |
-| `resolve.enable` | Enables DNS resolution for the server address.                             | `boolean`| No       | `true`                             |
-| `resolve.service`| DNS SRV service name for dynamic endpoint discovery.                       | `string` | No       | `"http.tcp"`                       |
+| `address`        | Hostname or IP address of the backend server.                              | `string` | Yes | `"backend1.example.com"`           |
+| `weight`         | Relative weight used for load balancing.                                   | `integer`| No | `5`                                |
+| `slow_start`     | Time period during which traffic ramps up after a server becomes available. | `string` | No | `"60s"`                            |
+| `fail_timeout`   | Time to wait before retrying a failed server.                              | `string` | No | `"10s"`                            |
+| `max_fails`      | Max number of failed attempts before considering the server unavailable.   | `integer`| No | `3`                                |
+| `max_conns`      | Maximum number of concurrent connections allowed to this server.           | `integer`| No | `10`                               |
+| `backup`         | If `true`, this server is only used when primary servers are unavailable.  | `boolean`| No | `true`                             |
+| `down`           | If `true`, the server is treated as permanently down.                      | `boolean`| No | `true`                             |
+| `resolve.enable` | Enables DNS resolution for the server address.                             | `boolean`| No | `true`                             |
+| `resolve.service`| DNS SRV service name for dynamic endpoint discovery.                       | `string` | No | `"http.tcp"`                       |
 
+> [!IMPORTANT]
+> - Each server in the list is a valid backend endpoint for the upstream.
+> - weight impacts how often this server is chosen.
+> - slow_start gradually ramps up traffic after recovery to prevent sudden load spikes.
+> - fail_timeout + max_fails define failure handling before marking a server as temporarily down.
+> - Use backup to designate fallback servers.
+> - Use resolve to support DNS-based service discovery (great for service mesh or dynamic backends).
 
-Example:
+**Example:**
 
 ```yml
 spec:
@@ -564,17 +559,7 @@ spec:
             service: http.tcp
 ```
 
-> [!IMPORTANT]
-> - Each server in the list is a valid backend endpoint for the upstream.
-> - weight impacts how often this server is chosen.
-> - slow_start gradually ramps up traffic after recovery to prevent sudden load spikes.
-> - fail_timeout + max_fails define failure handling before marking a server as temporarily down.
-> - Use backup to designate fallback servers.
-> - Use resolve to support DNS-based service discovery (great for service mesh or dynamic backends).
-
-
-
-## spec.upsreams.sessioncookie
+## spec.upstreams.sessioncookie
 
 The sessioncookie field enables session stickiness, ensuring the same client always connects to the same upstream server during a session. This is useful for maintaining user state in applications that don’t share sessions across nodes.
 
@@ -590,7 +575,13 @@ NGINX accomplishes this using a cookie, which is automatically set on the client
 | `secure`      | Ensures the cookie is sent over HTTPS only.                     | `boolean`| No       | `true`                 |
 | `samesite`    | Controls cookie sharing across sites (`strict`, `lax`, `none`). | `string` | No       | `"strict"`             |
 
-Example:
+> [!IMPORTANT]
+> - Adds a sticky cookie to client responses (e.g., Set-Cookie: srv_id=abc123).
+> - NGINX uses the cookie value to consistently route the client to the same upstream.
+> - Improves user experience and reduces cross-server state issues.
+> - Set secure, httponly, and samesite for better security posture.
+
+**Example:**
 ```yml
 spec:
   upstreams:
@@ -605,13 +596,7 @@ spec:
         samesite: strict
 ```
 
-> [!IMPORTANT]
-> - Adds a sticky cookie to client responses (e.g., Set-Cookie: srv_id=abc123).
-> - NGINX uses the cookie value to consistently route the client to the same upstream.
-> - Improves user experience and reduces cross-server state issues.
-> - Set secure, httponly, and samesite for better security posture.
-
-## spec.upsreams.healthcheck
+## spec.upstreams.healthcheck
 
 The `healthcheck` field defines **proactive health monitoring** for upstream servers. It allows NGINX to detect and avoid unhealthy backends by regularly probing a specific URL and checking its response.
 
@@ -638,7 +623,15 @@ This helps improve reliability by routing traffic only to responsive and healthy
 | `persistent`     | Keeps connection open between checks.                                            | `boolean`| No       | `true`                      |
 | `keepalive_time` | Duration to keep connections alive.                                              | `string` | No       | `"60s"`                     |
 
+[!IMPORTANT]
+> - Health checks occur at the configured interval.
+> - `fails` defines how many times in a row a health check must fail so that it will be marked unhealthy and excluded from load balancing.
+> - It must pass `passes` checks to be marked healthy again.
+> - Optional `match` rules make checks more precise (e.g., specific response headers or content).
+> - `mandatory`: true disables the entire upstream group if health check fails.
+> - `persistent` and `keepalive_time` improve performance by reusing connections.
 
+**Example:**
 ```yml
 healthcheck:
   path: /healthz
@@ -662,16 +655,6 @@ healthcheck:
   persistent: true
   keepalive_time: 60s
 ```
-
-[!IMPORTANT]
-> - Health checks occur at the configured interval.
-> - `fails` defines how many times in a row a health check must fail so that it will be marked unhealthy and excluded from load balancing.
-> - It must pass `passes` checks to be marked healthy again.
-> - Optional `match` rules make checks more precise (e.g., specific response headers or content).
-> - `mandatory`: true disables the entire upstream group if health check fails.
-> - `persistent` and `keepalive_time` improve performance by reusing connections.
-
-
 
 ## spec.routes
 
