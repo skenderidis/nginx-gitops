@@ -90,17 +90,17 @@ The **`spec`** section outlines the high-level configuration of the application.
 ## Spec.host
 
 The `host` field specifies the primary fully qualified domain name (FQDN) that this server block is designed to handle. This is a required field and acts as the main identifier for routing traffic. NGINX will match incoming HTTP/HTTPS requests to this value in the Host header and serve the appropriate configuration.
-If you're using a wildcard domain (e.g., *.example.com), make sure to quote it in YAML, as the asterisk can be misinterpreted by YAML parsers.
+, as the asterisk can be misinterpreted by YAML parsers.
 
 
 | Field   | Description   | Type     | Required | Examples  |
 |---------|---------------|----------|----------|-----------|
-| `host`  | The primary domain name this server block is designed to handle. Must be a valid FQDN. If using wildcard (e.g., `*.nginx.com`), it must be quoted. This value must be unique across all server blocks. | `string` | Yes      | `myapp.nginx.com`, <br>`"*.nginx.com"` |
+| `host`  | The primary domain name this server block is designed to handle. Must be a valid FQDN. | `string` | Yes      | `myapp.example.com`, <br>`"*.example.com"` |
 
 
 > [!IMPORTANT]
-> - The host must be unique across all server block definitions.
-> - The value must follow valid domain name syntax (RFC 1035).
+> - The `host` must be unique across all server block definitions.
+> - If you're using a wildcard domain (e.g. *.example.com), make sure to quote it in YAML (e.g. `host: "*.example.com"`)
 
 
 Example:
@@ -108,7 +108,7 @@ Example:
 name: app1
 template: vs
 spec:
-  host: my-app.example.com
+  host: myapp.example.com
 ```
 
 
