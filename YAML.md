@@ -33,6 +33,7 @@ spec:
 ## Table of Contents
 
 - [Root Structure](#root-structure)
+- [Spec](#spec)
 - [Spec.host](#host)
 - [Spec.tls](#team)
 - [Spec.jwt](#faq)
@@ -64,7 +65,7 @@ spec:
 
 ## Spec
 The **`spec`** section outlines the high-level configuration of the application. It includes all the key fields used to control routing, security, TLS, upstream settings, and more.
-You can click on any `field` name in the table below to jump to its detailed description.
+You can click on any **fields** in the table below to jump to its detailed description.
 
 | Field              | Description | Type     | Required |
 |-------------------|-------------|---------|----------|
