@@ -36,18 +36,18 @@ spec:
 - [Spec]
 - [spec.host](#spechost)
 - [spec.alternative_hosts](#specalternative_hosts)
-- [Spec.listen](#speclisten)
-- [Spec.tls](#spec)
-- [Spec.server_snippets](#specserver_snippets)
-
-
-
-- [Spec.tls](#spec)
-- [Spec.tls](#spec)
-
-- [Spec.jwt](#faq)
-- [Spec.accessControl](#support)
-- [Spec.License](#license)
+- [spec.listen](#speclisten)
+- [spec.tls](#spec)
+- [spec.server_snippets](#specserver_snippets)
+- [spec.apiKey](#specapikey)
+- [spec.jwt](#specjwt)
+- [spec.accessControl](#specaccesscontrol)
+- [spec.rateLimit](#specratelimit)
+- [spec.upstreams](#specupstreams)
+- [spec.upstreams.servers](#specupstreamsservers)
+- [spec.upstreams.sessioncookie](#specupstreamssessioncookie)
+- [spec.upstreams.healthcheck](#specupstreamshealthcheck)
+- [spec.routes](#specroutes)
 
 
 
@@ -438,7 +438,7 @@ spec:
 
 
 
-# Spec.upstreams
+## spec.upstreams
 
 The upstreams field defines one or more backend server groups that the NGINX server block will forward traffic to. Each upstream contains a list of servers, load balancing settings, timeouts, buffering, queueing, TLS options, health checks, and session persistence.
 
