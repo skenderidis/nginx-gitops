@@ -441,3 +441,557 @@ spec:
 > - If `dryRun` is `true`, requests are not blocked, but violations are logged.
 > - `rejectCode` allows custom HTTP responses when limits are hit (defaults to `503` if not set).
 
+
+
+# Spec.upstreams
+
+The upstreams field defines one or more backend server groups that the NGINX server block will forward traffic to. Each upstream contains a list of servers, load balancing settings, timeouts, buffering, queueing, TLS options, health checks, and session persistence.
+
+You can think of each upstream as a named cluster of backend endpoints with its own logic for routing, retries, stickiness, and fault tolerance.
+
+
+| Field                        | Description                                                                                      | Type              | Required | Examples                     |
+|-----------------------------|--------------------------------------------------------------------------------------------------|-------------------|----------|------------------------------|
+| `name`                      | Unique name for the upstream group. Referenced by `routes.proxy.upstream`.                      | `string`          | Yes      | `"backend_v1"`               |
+| `servers`                   | List of backend server addresses and per-server settings.                                       | array of object   | Yes      | See example below            |
+| `lb_method`                 | Load balancing method (e.g., `round_robin`, `least_conn`).                                      | `string`          | No       | `"least_conn"`               |
+| `connect_timeout`           | Max time to wait for a connection to a backend.                                                 | `string`          | No       | `"30s"`                      |
+| `read_timeout`              | Max time to wait for a response from the backend.                                               | `string`          | No       | `"30s"`                      |
+| `send_timeout`              | Max time to wait when sending a request to the backend.                                         | `string`          | No       | `"30s"`                      |
+| `zone_size`                 | Shared memory size for load balancing state.                                                    | `string` or `int` | No       | `"512k"`                     |
+| `buffering`                 | Enable or disable proxy buffering.                                                              | `boolean`         | No       | `true`, `false`              |
+| `buffer_size`              | Size of the proxy buffer for reading responses.                                                 | `string`          | No       | `"32k"`                      |
+| `buffers.number`            | Number of proxy buffers.                                                                        | `integer`         | No       | `4`                          |
+| `buffers.size`              | Size of each proxy buffer.                                                                      | `string`          | No       | `"8k"`                       |
+| `client_max_body_size`      | Max size of the request body accepted by this upstream.                                         | `string`          | No       | `"1m"`                       |
+| `tls.enable`                | If `true`, connect to the upstream using HTTPS.                                                 | `boolean`         | No       | `false`                      |
+| `queue.size`                | Max number of requests to queue when all upstream servers are busy.                             | `integer`         | No       | `30`                         |
+| `queue.timeout`             | Time a request can wait in the queue before timing out.                                         | `string`          | No       | `"60s"`                      |
+| `healthcheck`               | Health check configuration to monitor upstream availability.                                    | object            | No       | See healthcheck section      |
+| `sessioncookie.name`        | Cookie name used for session stickiness.                                                        | `string`          | No       | `"srv_id"`                   |
+
+> [!NOTE]
+> For full details on servers, sessioncookie, and healthcheck, see their dedicated sections.
+
+
+```yml
+spec:
+  upstreams:
+    - name: backend_v1
+      lb_method: least_conn
+      connect_timeout: 30s
+      read_timeout: 30s
+      send_timeout: 30s
+      buffering: true
+      buffer_size: 32k
+      buffers:
+        number: 4
+        size: 8k
+      client_max_body_size: 1m
+      tls:
+        enable: false
+      sessioncookie:
+        name: srv_id
+        path: /
+        expires: 1h
+        domain: .example.com
+        httponly: true
+        secure: true
+        samesite: strict
+      queue:
+        size: 30
+        timeout: 60s
+      servers:
+        - address: backend1.example.com
+        - address: backend2.example.com
+```
+
+
+
+> [!IMPORTANT]
+> - Each upstream defines a **named pool of servers** with rules for how traffic is distributed.
+> - Traffic is proxied to these servers based on route configuration (e.g., `proxy.upstream: backend_v1`).
+> - Load balancing, timeouts, buffer limits, and body size restrictions can all be tuned here.
+> - When `tls.enable: true`, NGINX proxies traffic to the upstream using HTTPS.
+> - `sessioncookie` allows session stickiness, ensuring a client consistently hits the same backend.
+> - `queue` lets you queue up requests when all upstreams are busy — useful for spike protection.
+> - `healthcheck` allows proactive removal of unhealthy servers from the load balancing rotation.
+> - DNS `resolve` support with `service` name mapping
+> - Upstream servers can have per-server overrides like:
+>   - `weight`: traffic weighting
+>   - `slow_start`: gradual ramp-up
+>   - `fail_timeout`, `max_fails`, `max_conns`
+>   - `backup` and `down` flags
+
+
+## spec.upsreams.servers
+The `servers` field defines the individual backend servers within an upstream. Each entry represents a host (or IP) that will receive proxied traffic. You can assign per-server settings like weight, failure handling, backup role, and DNS resolution options.
+
+
+| Field            | Description                                                                 | Type     | Required | Examples                           |
+|------------------|-----------------------------------------------------------------------------|----------|----------|------------------------------------|
+| `address`        | Hostname or IP address of the backend server.                              | `string` | Yes      | `"backend1.example.com"`           |
+| `weight`         | Relative weight used for load balancing.                                   | `integer`| No       | `5`                                |
+| `slow_start`     | Time period during which traffic ramps up after a server becomes available. | `string` | No       | `"60s"`                            |
+| `fail_timeout`   | Time to wait before retrying a failed server.                              | `string` | No       | `"10s"`                            |
+| `max_fails`      | Max number of failed attempts before considering the server unavailable.   | `integer`| No       | `3`                                |
+| `max_conns`      | Maximum number of concurrent connections allowed to this server.           | `integer`| No       | `10`                               |
+| `backup`         | If `true`, this server is only used when primary servers are unavailable.  | `boolean`| No       | `true`                             |
+| `down`           | If `true`, the server is treated as permanently down.                      | `boolean`| No       | `true`                             |
+| `resolve.enable` | Enables DNS resolution for the server address.                             | `boolean`| No       | `true`                             |
+| `resolve.service`| DNS SRV service name for dynamic endpoint discovery.                       | `string` | No       | `"http.tcp"`                       |
+
+
+Example:
+
+```yml
+spec:
+  upstreams:
+    - name: backend_v1
+      servers:
+        - address: backend1.example.com
+          weight: 5
+          slow_start: 60s
+          max_fails: 2
+          max_conns: 10
+        - address: backend2.example.com
+          backup: true
+        - address: backend3.example.com
+          down: true
+          resolve:
+            enable: true
+            service: http.tcp
+```
+
+> [!IMPORTANT]
+> - Each server in the list is a valid backend endpoint for the upstream.
+> - weight impacts how often this server is chosen.
+> - slow_start gradually ramps up traffic after recovery to prevent sudden load spikes.
+> - fail_timeout + max_fails define failure handling before marking a server as temporarily down.
+> - Use backup to designate fallback servers.
+> - Use resolve to support DNS-based service discovery (great for service mesh or dynamic backends).
+
+
+
+## spec.upsreams.sessioncookie
+
+The sessioncookie field enables session stickiness, ensuring the same client always connects to the same upstream server during a session. This is useful for maintaining user state in applications that don’t share sessions across nodes.
+
+NGINX accomplishes this using a cookie, which is automatically set on the client side.
+
+| Field         | Description                                                      | Type     | Required | Examples               |
+|---------------|------------------------------------------------------------------|----------|----------|------------------------|
+| `name`        | Name of the cookie used to persist sessions.                    | `string` | Yes      | `"srv_id"`             |
+| `path`        | Cookie path restriction. Defaults to `/` if not set.            | `string` | No       | `"/"`                  |
+| `expires`     | Cookie lifetime (e.g., 1h, 30m).                                 | `string` | No       | `"1h"`                 |
+| `domain`      | Domain scope for the cookie.                                     | `string` | No       | `".example.com"`       |
+| `httponly`    | Prevents client-side JavaScript from reading the cookie.         | `boolean`| No       | `true`                 |
+| `secure`      | Ensures the cookie is sent over HTTPS only.                     | `boolean`| No       | `true`                 |
+| `samesite`    | Controls cookie sharing across sites (`strict`, `lax`, `none`). | `string` | No       | `"strict"`             |
+
+Example:
+```yml
+spec:
+  upstreams:
+    - name: backend_v1
+      sessioncookie:
+        name: srv_id
+        path: /
+        expires: 1h
+        domain: .example.com
+        httponly: true
+        secure: true
+        samesite: strict
+```
+
+> [!IMPORTANT]
+> - Adds a sticky cookie to client responses (e.g., Set-Cookie: srv_id=abc123).
+> - NGINX uses the cookie value to consistently route the client to the same upstream.
+> - Improves user experience and reduces cross-server state issues.
+> - Set secure, httponly, and samesite for better security posture.
+
+## spec.upsreams.healthcheck
+
+The `healthcheck` field defines **proactive health monitoring** for upstream servers. It allows NGINX to detect and avoid unhealthy backends by regularly probing a specific URL and checking its response.
+
+This helps improve reliability by routing traffic only to responsive and healthy endpoints.
+
+| Field             | Description                                                                      | Type     | Required | Examples                    |
+|------------------|----------------------------------------------------------------------------------|----------|----------|-----------------------------|
+| `path`           | URI to probe for health (e.g., `/healthz`).                                      | `string` | No       | `"/healthz"`                |
+| `interval`       | How often the health check runs.                                                 | `string` | No       | `"20s"`                     |
+| `jitter`         | Adds randomness to health check timing to avoid sync issues.                     | `string` | No       | `"3s"`                      |
+| `fails`          | Number of failed checks before marking a server unhealthy.                       | `integer`| No       | `3`                         |
+| `passes`         | Number of successful checks to recover a previously failed server.               | `integer`| No       | `2`                         |
+| `port`           | Port used for health checks (if different from main traffic).                    | `integer`| No       | `8080`                      |
+| `tls.enable`     | Enable TLS for health checks.                                                    | `boolean`| No       | `true`                      |
+| `connect_timeout`| Max time to establish a connection for the check.                                | `string` | No       | `"10s"`                     |
+| `read_timeout`   | Max time to wait for a response.                                                 | `string` | No       | `"10s"`                     |
+| `send_timeout`   | Max time to send the request body (if any).                                      | `string` | No       | `"10s"`                     |
+| `headers.name`   | Request header name.                                                             | `string` | No       | `"Host"`                    |
+| `headers.value`  | Request header value.                                                            | `string` | No       | `"my.service"`              |
+| `match.status`   | Match condition on HTTP status (e.g., `! 500`).                                  | `string` | No       | `"! 500"`                   |
+| `match.header`   | Match condition on response header (e.g., `! Refresh;`).                         | `string` | No       | `"! Refresh;"`              |
+| `match.body`     | Regex match on response body content.                                            | `string` | No       | `"~ \"OK\""`                |
+| `mandatory`      | If `true`, the entire upstream is disabled if check fails.                       | `boolean`| No       | `true`                      |
+| `persistent`     | Keeps connection open between checks.                                            | `boolean`| No       | `true`                      |
+| `keepalive_time` | Duration to keep connections alive.                                              | `string` | No       | `"60s"`                     |
+
+
+```yml
+healthcheck:
+  path: /healthz
+  interval: 20s
+  fails: 3
+  passes: 2
+  port: 8080
+  tls:
+    enable: true
+  connect_timeout: 10s
+  read_timeout: 10s
+  send_timeout: 10s
+  headers:
+    - name: Host
+      value: my.service
+  match:
+    status: "! 500"
+    header: "! Refresh;"
+    body: "~ \"Service OK\""
+  mandatory: true
+  persistent: true
+  keepalive_time: 60s
+```
+
+[!IMPORTANT]
+> - Health checks occur at the configured interval.
+> - `fails` defines how many times in a row a health check must fail so that it will be marked unhealthy and excluded from load balancing.
+> - It must pass `passes` checks to be marked healthy again.
+> - Optional `match` rules make checks more precise (e.g., specific response headers or content).
+> - `mandatory`: true disables the entire upstream group if health check fails.
+> - `persistent` and `keepalive_time` improve performance by reusing connections.
+
+
+
+## spec.routes
+
+The routes field defines a list of path-based routing rules within a server block configuration. Each route determines how NGINX should process requests that match a specific URL path — whether by proxying to an upstream, redirecting, returning a static response, conditionally matching, or splitting traffic.
+
+Each route must include a path, and then one of the supported actions:
+
+> - `proxy` – forward requests to an upstream
+> - `redirect` – redirect to another URL
+> - `return` – respond directly with a custom message
+> - `matches` – apply logic based on headers, cookies, etc.
+> - `splits` – divide traffic across upstreams based on weight
+
+| Field            | Description                                                                                     | Type               | Required | Examples                   |
+|------------------|-------------------------------------------------------------------------------------------------|--------------------|----------|----------------------------|
+| `path`           | The request URI path to match (e.g., `/api`, `/login`). Must start with `/`.                    | `string`           | Yes      | `"/api"`                   |
+| `proxy`          | Defines the upstream and request handling logic for forwarding the request.                     | object             | Conditional | See `proxy` section       |
+| `redirect`       | Sends an HTTP redirect response to the client.                                                  | object             | Conditional | See `redirect` section    |
+| `return`         | Immediately returns a custom response to the client.                                            | object             | Conditional | See `return` section      |
+| `matches`        | Allows routing decisions based on header/cookie/variable conditions.                            | array of objects   | Conditional | See `matches` section     |
+| `splits`         | Enables weighted traffic splitting between upstreams.                                           | array of objects   | Conditional | See `splits` section      |
+| `location_snippets` | Raw NGINX directives to inject inside this location block.                                   | string             | No       | `"limit_conn conn 5;"`    |
+| `errorpages`     | Custom error response overrides for this route.                                                 | array of objects   | No       | `[{ codes: [404], return: {...} }]` |
+
+
+
+> [!IMPORTANT]
+> - Every route must define a path — this is the URI prefix that triggers the route logic.
+> - A route can only define one action type: `proxy`, `redirect`, `return`, `matches`, or `splits`.
+> - Routing precedence is based on the order in which routes are listed.
+> - `location_snippets` lets you customize route-level directives (e.g., rate limits, logging).
+> - `errorpages` allows defining route-specific error overrides (e.g., custom 404 handler).
+> - If multiple routes match a request, only the first match is applied.
+
+
+## spec.routes.proxy
+The proxy field is used to forward incoming requests to an upstream server group defined under spec.upstreams. This is the most common routing action in NGINX configurations and serves as the foundation for reverse proxy behavior.
+
+The proxy object supports additional controls like path rewriting, header manipulation (request/response), and selective visibility of upstream headers.
+
+
+| Field                           | Description                                                                                              | Type               | Required | Examples                                  |
+|----------------------------------|----------------------------------------------------------------------------------------------------------|--------------------|----------|-------------------------------------------|
+| `upstream`                       | Name of the upstream to which the request should be proxied. Must match a `spec.upstreams.name`.        | `string`           | Yes      | `"backend_v1"`                            |
+| `rewritepath`                    | Rewrites the request URI before sending it to the upstream.                                              | `string`           | No       | `"/api"` → `"/v1"`                        |
+| `requestheaders.pass_origin_headers` | If `true`, passes original client request headers to the upstream.                                      | `boolean`          | No       | `true`                                     |
+| `requestheaders.set`            | A list of custom headers to add or override in the request sent to the upstream.                        | array of objects   | No       | `{ name: "X-Request-ID", value: "$request_id" }` |
+| `responseheaders.add`           | A list of custom response headers to add in responses back to the client.                               | array of objects   | No       | `{ name: "X-App-Version", value: "v2" }`  |
+| `responseheaders.hide`          | A list of upstream response headers to remove before passing to the client.                             | array of objects   | No       | `{ name: "X-Powered-By" }`                |
+| `responseheaders.pass`          | A list of upstream response headers to explicitly pass to the client.                                   | array of objects   | No       | `{ name: "Content-Type" }`                |
+| `responseheaders.ignore`        | A list of restricted headers (e.g., `Cache-Control`, `Set-Cookie`) that NGINX should ignore.            | array of objects   | No       | `{ name: "Set-Cookie" }`                  |
+
+Example: 
+```yml
+spec:
+  routes:
+    - path: /api
+      proxy:
+        upstream: backend_v1
+        rewritepath: /v1
+        requestheaders:
+          pass_origin_headers: true
+          set:
+            - name: X-Request-ID
+              value: $request_id
+        responseheaders:
+          add:
+            - name: X-App-Version
+              value: "v2"
+          hide:
+            - name: X-Powered-By
+          pass:
+            - name: Content-Type
+          ignore:
+            - name: Set-Cookie
+```
+
+[!IMPORTANT]
+> - The `upstream` value must match a defined entry in `spec.upstreams`.
+> - `rewritepath` replaces the URI sent to the backend (e.g., `/api` → `/v1`).
+> - By default, most original request headers are passed through — but `pass_origin_headers: true` ensures completeness.
+> - `set` allows injection of custom headers, like request IDs, auth tokens, or user context.
+> - `responseheaders.add` enriches the response with headers (e.g., versioning, flags).
+> - `hide` removes potentially sensitive upstream headers before they reach the client.
+> - `ignore` suppresses standard NGINX-controlled headers (like Set-Cookie, Cache-Control) if needed.
+> -  This configuration gives you full control over **both upstream and downstream header behavior**, making it suitable for internal APIs, secured backends, or third-party integrations.
+
+
+## spec.routes.redirect
+
+The `redirect` field configures an **HTTP redirect response** for incoming requests matching the route's `path`. This is useful for rerouting outdated URLs, migrating endpoints, or enforcing trailing slashes or HTTPS.
+
+You can control both the **target URL** and the **status code** used for the redirect.
+
+### ✅ GitHub Markdown Table
+
+| Field       | Description                                                                 | Type     | Required | Examples                          |
+|-------------|-----------------------------------------------------------------------------|----------|----------|-----------------------------------|
+| `url`       | The destination URL or path to redirect the request to.                    | `string` | Yes      | `"/new-url"`, `"https://site.com"`|
+| `code`      | The HTTP status code for the redirect. Must be one of: 301, 302, 303, 307, 308. | `integer`| No       | `301`, `302`                      |
+
+### 🔍 Example
+
+```yaml
+spec:
+  routes:
+    - path: /old
+      redirect:
+        url: /new
+        code: 301
+```
+
+[!IMPORTANT]
+> - `url` can be relative (`/new`) or absolute (`https://example.com/new`).
+> - If `code` is omitted, it defaults to 301 (permanent).
+> - NGINX uses the `return` directive behind the scenes to issue the redirect.
+> - You can use this to implement trailing slash policies, legacy URL rewrites, or protocol upgrades.
+
+
+
+
+The `return` field allows the route to **immediately respond with a custom response**, without forwarding or redirecting. This is ideal for status checks (like `/ping`), custom error pages, or mock responses.
+
+You can customize the **status code**, **content type**, **body**, and even **response headers**.
+
+### ✅ GitHub Markdown Table
+
+| Field          | Description                                                                 | Type           | Required | Examples                     |
+|----------------|-----------------------------------------------------------------------------|----------------|----------|------------------------------|
+| `code`         | HTTP status code to return (100–599).                                      | `integer`      | No       | `200`, `404`, `503`          |
+| `type`         | MIME type of the response body.                                             | `string`       | No       | `"text/plain"`, `"application/json"` |
+| `body`         | The content to return in the response body.                                | `string`       | Yes      | `"pong"`, `"{\"status\": \"ok\"}"` |
+| `headers`      | Optional list of headers to include in the response.                       | array of objects| No       | `{ name: "X-Test", value: "1" }` |
+
+Example:
+
+```yml
+spec:
+  routes:
+    - path: /ping
+      return:
+        code: 200
+        type: text/plain
+        body: "pong"
+        headers:
+          - name: X-Server
+            value: nginx
+```
+
+
+> [!IMPORTANT]
+> - If code is not provided, NGINX defaults to 200 OK.
+> - type sets the Content-Type of the response. If omitted, NGINX will try to infer it.
+> - headers allows adding custom response headers (e.g., version tags, metadata).
+> - No upstream communication or route matching happens — this ends the request immediately.
+> - Perfect for health checks, mocking endpoints, under-construction pages, or legal notices.
+
+
+
+
+## 🧩 `matches`
+
+### 📘 Description
+
+The `matches` field enables **conditional routing logic** based on request metadata — such as HTTP headers, cookies, or NGINX variables (e.g., method or query parameters). When a match condition is met, the request is handled using the specified `proxy` configuration.
+
+### ✅ GitHub Markdown Table
+
+| Field            | Description                                                        | Type     | Required | Examples                           |
+|------------------|--------------------------------------------------------------------|----------|----------|------------------------------------|
+| `condition.header`  | Name of the HTTP header to match.                              | `string` | Conditional | `"X-User-Type"`               |
+| `condition.cookie`  | Name of the cookie to match.                                   | `string` | Conditional | `"session_id"`                |
+| `condition.variable`| Name of an NGINX variable to evaluate (e.g., `$request_method`).| `string` | Conditional | `"$request_method"`            |
+| `condition.value`   | Expected value to match.                                       | `string` | Yes      | `"admin"`, `"POST"`               |
+| `condition.proxy`   | Proxy configuration to apply when the condition matches.       | object   | Yes      | See `proxy` section               |
+
+### 🔍 Example
+
+```yaml
+spec:
+  routes:
+    - path: /secure
+      matches:
+        - condition:
+            header: X-User-Type
+            value: admin
+            proxy:
+              upstream: admin_backend
+        - condition:
+            cookie: user_id
+            value: 123
+            proxy:
+              upstream: special_user_backend
+```
+
+[!IMPORTANT]
+> - Conditions are evaluated in **order**, and the first match is applied.
+> - Each condition block must include only one of `header`, `cookie`, or `variable`, plus a `value` and `proxy`.
+> - Matching is based on **exact string comparison**.
+> - If no conditions match, the route does **not fallback** to another action — the request proceeds with default route behavior (if defined).
+
+
+
+## ⚖️ `splits`
+
+### 📘 Description
+
+The `splits` field allows you to **distribute traffic across multiple upstreams** based on defined weights. This is ideal for **canary deployments**, **A/B testing**, or **progressive rollouts**.
+
+### ✅ GitHub Markdown Table
+
+| Field       | Description                                                  | Type     | Required | Examples               |
+|-------------|--------------------------------------------------------------|----------|----------|------------------------|
+| `weight`    | Percentage of traffic to route to this proxy (0–100).       | integer  | Yes      | `80`, `20`             |
+| `proxy`     | The proxy configuration to apply for this weighted split.   | object   | Yes      | See `proxy` section    |
+
+### 🔍 Example
+
+```yaml
+spec:
+  routes:
+    - path: /login
+      splits:
+        - weight: 90
+          proxy:
+            upstream: stable_backend
+        - weight: 10
+          proxy:
+            upstream: canary_backend
+```
+
+[!IMPROTANT]
+
+> - The total of all weight values should add up to 100, though NGINX will normalize if not.
+> - NGINX randomly selects the backend for each request based on the weight.
+> - Enables low-risk rollouts and feature experimentation with real traffic.
+> - Works well with session stickiness for consistent experiences per user.
+
+
+## 🚨 `errorpages`
+
+### 📘 Description
+
+The `errorpages` field allows you to **override default error handling** for specific status codes within a route. You can define custom **redirects** or **returns** for one or more HTTP error codes (e.g., `404`, `500`, `502`).
+
+### ✅ GitHub Markdown Table
+
+| Field        | Description                                                  | Type            | Required | Examples                     |
+|--------------|--------------------------------------------------------------|-----------------|----------|------------------------------|
+| `codes`      | List of HTTP status codes this error page applies to.       | array of int    | Yes      | `[404, 500]`                 |
+| `redirect.url` | URL to redirect to for the error.                          | string          | Conditional | `"/custom-404"`          |
+| `redirect.code`| Redirect status code (301, 302, 303, 307, 308).            | integer         | No       | `302`                        |
+| `return.code`  | Status code for static response.                           | integer         | No       | `404`, `503`                 |
+| `return.type`  | MIME type of the body.                                     | string          | No       | `"text/plain"`               |
+| `return.body`  | Response body to send.                                     | string          | Yes      | `"Page not found"`           |
+| `return.headers` | Optional headers to include in the error response.      | array of object | No       | `{ name: "X-Error", value: "true" }` |
+
+### 🔍 Example
+
+```yaml
+spec:
+  routes:
+    - path: /demo
+      proxy:
+        upstream: demo_backend
+      errorpages:
+        - codes: [404]
+          return:
+            code: 404
+            type: text/plain
+            body: "Custom 404 page"
+        - codes: [500]
+          redirect:
+            url: /error
+            code: 302
+```
+
+> [!IMPORTANT]
+> - Each rule applies to one or more status codes.
+> - You must define **either** `redirect` or `return`, but not both.
+> - `return` can include content and headers — useful for debugging or soft failover.
+> - `redirect` points users to a fallback page or external help page.
+
+
+`location_snippets`
+
+### 📘 Description
+
+The `location_snippets` field allows you to **inject custom NGINX directives** into a route's generated `location` block. This is useful for fine-tuning settings like rate limiting, logging, connection limits, etc., on a per-route basis.
+
+> ⚠️ Use with care. Improper or conflicting directives can break configuration or override default logic.
+
+### ✅ GitHub Markdown Table
+
+| Field               | Description                                                  | Type     | Required | Examples                |
+|---------------------|--------------------------------------------------------------|----------|----------|-------------------------|
+| `location_snippets` | NGINX directives to inject directly into the route’s `location` block. | `string` | No       | `"limit_conn addr 10;"` |
+
+### 🔍 Example
+
+```yaml
+spec:
+  routes:
+    - path: /rate-limited
+      proxy:
+        upstream: backend
+      location_snippets: |
+        limit_conn addr 10;
+        limit_req zone=default burst=5 nodelay;
+```
+
+> [!IMPORTANT]
+> - Injects raw text after the location block is opened and before it closes.
+> - Accepts any valid NGINX directive allowed in a location context.
+> - Common use cases:
+>   - Connection or request limits
+>   - Caching behavior
+>   - Custom log formats
+> - Should not conflict with what the main schema generates (e.g., duplicate proxy_pass).
+
+
+
+
+
