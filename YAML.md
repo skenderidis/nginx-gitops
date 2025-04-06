@@ -356,11 +356,11 @@ spec:
 ```
 
 > [!NOTE]
-> If jwksURI is provided, NGINX dynamically fetches public keys to validate tokens signed with asymmetric algorithms.
-> If secret is used, NGINX loads the secret key from the specified path and validates HMAC-signed tokens (e.g., HS256).
-> The token field tells NGINX where to look for the JWT — usually in an HTTP header.
-> When authentication fails, NGINX returns a 401 Unauthorized response and includes the configured realm in the header.
-> Works seamlessly with auth_jwt directives under the hood.
+> - If jwksURI is provided, NGINX dynamically fetches public keys to validate tokens signed with asymmetric algorithms.
+> - If secret is used, NGINX loads the secret key from the specified path and validates HMAC-signed tokens (e.g., HS256).
+> - The token field tells NGINX where to look for the JWT — usually in an HTTP header.
+> - When authentication fails, NGINX returns a 401 Unauthorized response and includes the configured realm in the header.
+> - Works seamlessly with auth_jwt directives under the hood.
 
 
 
@@ -390,9 +390,9 @@ spec:
 
 
 > [!IMPORTANT]
-> If allow is set, all IPs not in that list are blocked.
-> If only deny is set, all IPs not in that list are allowed.
-> If both allow and deny are omitted, there is no IP filtering.
-> Applies at the server block level and affects all routes under that host.
+> - If allow is set, all IPs not in that list are blocked.
+> - If only deny is set, all IPs not in that list are allowed.
+> - If both allow and deny are omitted, there is no IP filtering.
+> - Applies at the server block level and affects all routes under that host.
 
 
