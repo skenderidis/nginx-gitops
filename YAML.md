@@ -57,42 +57,34 @@ This is an example of the Root structure YAML:
 name: app1
 template: vs
 spec:
-  host: cafe.example.com
-  tls: ...
+  ...
   ...
   ...
 ```
 
 ## Spec
-The **`spec`** section outlines the high-level configuration of the application. It includes all the key fields used to control routing, security, TLS, upstream settings, and more.
-You can click on any **fields** in the table below to jump to its detailed description.
+The **`spec`** section outlines the high-level configuration of the application. It includes all the key fields used to control routing, security, TLS, upstream settings and more.
 
-| Field              | Description | Type     | Required |
-|-------------------|-------------|---------|----------|
-| ***[spec.host](#spechost)***| The hostname (domain name) that the application serves. It should be unique across all configurations that are deployed on the same NGINX. The configuration supports also wildcard domains. <br>Expected values: <br>&nbsp;&nbsp; - myapp.example.com<br> &nbsp;&nbsp;&nbsp;- "*.example.com"<br> &nbsp;&nbsp;&nbsp;- myapp | `string` | Yes |
-| ***[spec.alternative_hosts](#specalternative_hosts)*** | An optional list of additional domain names that this application serves. These domains must also be unique across all configurations that are deployed on the same NGINX. | `array` of `string` | No |
-| ***[spec.listen](#speclisten)*** | Specifies the port number NGINX should listen on. Defaults to `80` for HTTP and `443` for HTTPS. | `integer` | No |
-| ***[spec.tls](#spectls)***  | Defines the TLS termination settings, including the certificate name and supported protocols and ciphers. <br> Defaults to `off` if not set. | object ([tls](#spectls)) | No |
-| ***[spec.server_snippets](#specserver_snippets)*** | Allows custom NGINX directives to be added to the server block configuration. | `string` | No |
-| ***[spec.gunzip](#specgunzip)*** | Controls GZIP decompression on responses. Useful when upstreams send compressed responses and decompression is required for processing or caching. | `object` | No |
-| ***[spec.waf](#specwaf)*** | Enables NGINX App Protect WAF configuration. Expects the policy references as well as the log settings | `object` | No |
-| ***[spec.apiKey](#specapikey)*** | Enables API key-based authentication. Allows multiple key definitions and options for supplying them in headers or query parameters. | `object` | No |
-| ***[spec.jwt](#specjwt)*** | Configures JWT-based authentication. Supports local secret file or remote JWKS URI for token validation. | `object` | No |
-| ***[spec.accessControl](#specaccesscontrol)*** | Defines IP-based access control rules. Supports `allow` and `deny` lists for fine-grained access policies. | `object` | No |
-| ***[spec.rateLimit](#specratelimit)*** | Enables rate limiting based on client IP or other variables. Supports burst, delay, dry-run mode, and log customization. | `object` | No |
-| ***[spec.routes](#specroutes)*** | List of route definitions that specify how incoming requests are processed. Each route can define proxy settings, redirects, static responses, traffic splits, or condition-based routing. | `array` of `object` | Yes |
-| ***[spec.upstreams](#specupstreams)*** | Defines upstream server pools including load balancing method, timeout settings, health checks, session persistence, and queueing. | `array` of `object` | Yes |
+| Field      | Description | Type     | Required |
+|------------|-------------|---------|----------|
+| [spec.host](#spechost)| The hostname (domain name) that the server block is designed to handle. It should be unique across all configurations that are deployed on the same NGINX. The configuration supports also wildcard domains. <br>Expected values: <br>&nbsp;&nbsp; - myapp.example.com<br> &nbsp;&nbsp;&nbsp;- "*.example.com"<br> &nbsp;&nbsp;&nbsp;- myapp | `string` | Yes |
+| [spec.alternative_hosts](#specalternative_hosts) | An optional list of additional domain names that the application serves. These domains must also be unique across all configurations that are deployed on the same NGINX. | `array` of `string` | No |
+| [spec.listen](#speclisten) | Specifies the port number NGINX should listen on. Defaults to `80` for HTTP and `443` for HTTPS. | `integer` | No |
+| [spec.tls](#spectls)  | Defines the TLS termination settings, including the certificate name and supported protocols and ciphers. <br> Defaults to `off` if not set. | object ([tls](#spectls)) | No |
+| [spec.server_snippets](#specserver_snippets) | Allows custom NGINX directives to be added to the server block configuration. | `string` | No |
+| [spec.gunzip](#specgunzip)| Controls GZIP decompression on responses. Useful when upstreams send compressed responses and decompression is required for processing or caching. | `object` | No |
+| [spec.waf](#specwaf) | Enables NGINX App Protect WAF configuration. Expects the policy references as well as the log settings | `object` | No |
+| [spec.apiKey](#specapikey) | Enables API key-based authentication. Allows multiple key definitions and options for supplying them in headers or query parameters. | `object` | No |
+| [spec.jwt](#specjwt) | Configures JWT-based authentication. Supports local secret file or remote JWKS URI for token validation. | `object` | No |
+| [spec.accessControl](#specaccesscontrol) | Defines IP-based access control rules. Supports `allow` and `deny` lists for fine-grained access policies. | `object` | No |
+| [spec.rateLimit](#specratelimit) | Enables rate limiting based on client IP or other variables. Supports burst, delay, dry-run mode, and log customization. | `object` | No |
+| [spec.routes](#specroutes) | List of route definitions that specify how incoming requests are processed. Each route can define proxy settings, redirects, static responses, traffic splits, or condition-based routing. | `array` of `object` | Yes |
+| [spec.upstreams](#specupstreams) | Defines upstream server pools including load balancing method, timeout settings, health checks, session persistence, and queueing. | `array` of `object` | Yes |
+
+> [!NOTE]
+> For full details on each `field`, see their dedicated sections.
 
 
-```yml
-name: app1
-template: vs
-spec:
-  host: cafe.example.com
-  tls: ...
-  ...
-  ...
-```
 
 
 ## Spec.host
@@ -100,13 +92,14 @@ spec:
 The `host` field specifies the primary fully qualified domain name (FQDN) that this server block is designed to handle. This is a required field and acts as the main identifier for routing traffic. NGINX will match incoming HTTP/HTTPS requests to this value in the Host header and serve the appropriate configuration.
 If you're using a wildcard domain (e.g., *.example.com), make sure to quote it in YAML, as the asterisk can be misinterpreted by YAML parsers.
 
-**Key Notes:**
-- The host must be unique across all server block definitions.
-- The value must follow valid domain name syntax (RFC 1035).
+> [!IMPORTANT] Test
+> - The host must be unique across all server block definitions.
+> - The value must follow valid domain name syntax (RFC 1035).
 
-| Field   | Description                                                                                                                    | Type     | Required | Examples                    |
-|---------|--------------------------------------------------------------------------------------------------------------------------------|----------|----------|-----------------------------|
-| `host`  | The primary domain name this server block is designed to handle. Must be a valid FQDN. If using wildcard (e.g., `*.nginx.com`), it must be quoted. This value must be unique across all server blocks. | `string` | Yes      | `myapp.nginx.com`<br>`"*.nginx.com"` |
+
+| Field   | Description   | Type     | Required | Examples  |
+|---------|---------------|----------|----------|-----------|
+| `host`  | The primary domain name this server block is designed to handle. Must be a valid FQDN. If using wildcard (e.g., `*.nginx.com`), it must be quoted. This value must be unique across all server blocks. | `string` | Yes      | `myapp.nginx.com`, <br>`"*.nginx.com"` |
 
 
 Example:
@@ -115,9 +108,13 @@ name: app1
 template: vs
 spec:
   host: my-app.example.com
-  ...
-  ...
 ```
+
+> [!IMPORTANT]
+> - The host must be unique across all server block definitions.
+> - The value must follow valid domain name syntax (RFC 1035).
+
+
 
 ## Spec.alternative_hosts 
 The `alternative_hosts` field defines a list of additional domain names that should be associated with the same server block configuration. These domain names are included in the **server_name** directive along with the primary host, allowing NGINX to handle multiple domain variations using a single configuration block.
