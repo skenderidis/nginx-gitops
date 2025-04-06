@@ -103,7 +103,7 @@ The `host` field specifies the primary fully qualified domain name (FQDN) that t
 > - If you're using a wildcard domain (e.g. *.example.com), make sure to quote it in YAML (e.g. `host: "*.example.com"`)
 
 
-Example:
+**Example:**
 ```yaml
 name: app1
 template: vs
@@ -112,19 +112,21 @@ spec:
 ```
 
 
-
 ## Spec.alternative_hosts 
 The `alternative_hosts` field defines a list of additional domain names that should be associated with the same server block configuration. These domain names are included in the **server_name** directive along with the primary host, allowing NGINX to handle multiple domain variations using a single configuration block.
 
-- This field is **optional**.
-- Wildcard domains like `*.example.com` must be quoted to avoid YAML parsing issues.
 
-| Field               | Description                                                                                                         | Type            | Required | Examples                                                  |
-|--------------------|---------------------------------------------------------------------------------------------------------------------|------------------|----------|-----------------------------------------------------------|
-| `alternative_hosts`| A list of additional domain names that should be included in the same server block configuration. These values are appended to the NGINX `server_name` directive alongside the `host` field. | array of strings | No       | `["cafe1.example.com", "cafe2.example.com"]`<br>`["*.api.example.com"]` |
+| Field | Description | Type | Required | Examples |
+|-------|-------------|------|----------|----------|
+| `alternative_hosts`| A list of additional domain names that should be included in the same server block configuration. These values are appended to the NGINX `server_name` directive alongside the `host` field. | `array` of `strings` | No       | `cafe1.example.com, cafe2.example.com, "*.api.example.com"` |
 
+> [!IMPORTANT]
+> - This field is **optional**.
+> - They must be unique across all server block definitions.
+> - Wildcard domains like `*.example.com` must be quoted to avoid YAML parsing issues.
 
-Example:
+**Example:**
+
 ```yaml
 name: app1
 template: vs
@@ -141,16 +143,19 @@ spec:
 The `listen` field defines the **port number** that NGINX should bind to for incoming connections in this server block configuration. It controls whether NGINX listens on HTTP (typically port 80) or HTTPS (port 443), or on a custom port for specific use cases (e.g., 8080 for internal apps).
 
 ⚠️ Considerations: 
-- The value must be an integer between 1 and 65535.
-- If listen is not specified, it defaults to 80 or 443 depending on whether TLS is enabled.
-- TLS-related settings (under spec.tls) determine whether the port is treated as secure.
+
 
 This field provides flexibility when multiple configurations need to run on different ports on the same server.
 
 
-| Field    | Description                                                                                   | Type     | Required | Examples        |
-|----------|-----------------------------------------------------------------------------------------------|----------|----------|-----------------|
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
 | `listen` | Port number to bind the server block configuration to. Defaults to `80` or `443` if omitted. Must be between `1` and `65535`. | integer  | No       | `80`, `443`, `8080` |
+
+> [!IMPORTANT]
+> - The value must be an integer between 1 and 65535.
+> - If listen is not specified, it defaults to 80 or 443 depending on whether TLS is enabled.
+> - TLS-related settings (under spec.tls) determine whether the port is treated as secure.
 
 
 Example:
@@ -163,6 +168,7 @@ spec:
 ```
 
 > 💡 **Tip:** When using listen: 443, make sure TLS is enabled and a valid certificate is provided under spec.tls.
+
 
 ## Spec.tls
 The `tls` field defines the TLS (Transport Layer Security) settings for this server block configuration. When enabled, NGINX will listen for **HTTPS** traffic on the configured port (commonly 443) and terminate SSL using the specified certificate.
