@@ -92,7 +92,7 @@ The **`spec`** section outlines the high-level configuration of the application.
 The `host` field specifies the primary fully qualified domain name (FQDN) that this server block is designed to handle. This is a required field and acts as the main identifier for routing traffic. NGINX will match incoming HTTP/HTTPS requests to this value in the Host header and serve the appropriate configuration.
 If you're using a wildcard domain (e.g., *.example.com), make sure to quote it in YAML, as the asterisk can be misinterpreted by YAML parsers.
 
-> [!IMPORTANT] Test
+> [!IMPORTANT] 
 > - The host must be unique across all server block definitions.
 > - The value must follow valid domain name syntax (RFC 1035).
 
