@@ -379,6 +379,7 @@ If allow rules are defined, all other IPs are implicitly denied. If only deny is
 > [!CAUTION]
 > Either `allow` or `deny` must be specified. In case both are defined, `allow` will supercede `deny`.
 
+Example: 
 ```yml
 spec:
   accessControl:
