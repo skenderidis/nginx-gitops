@@ -48,7 +48,13 @@ spec:
 - [spec.upstreams.sessioncookie](#specupstreamssessioncookie)
 - [spec.upstreams.healthcheck](#specupstreamshealthcheck)
 - [spec.routes](#specroutes)
-
+- [spec.routes.proxy](#specroutesproxy)
+- [spec.routes.redirect](#specroutesredirect)
+- [spec.routes.return](#specroutesreturn)
+- [spec.routes.matches](#specroutesmatches)
+- [spec.routes.splits](#specroutessplits)
+- [spec.routes.errorpages](#specrouteserrorpages)
+- [spec.routes.location_snippets](#specrouteslocation_snippets)
 
 
 ## Root Structure
@@ -703,11 +709,11 @@ The proxy object supports additional controls like path rewriting, header manipu
 | `upstream`                       | Name of the upstream to which the request should be proxied. Must match a `spec.upstreams.name`.        | `string`           | Yes      | `"backend_v1"`                            |
 | `rewritepath`                    | Rewrites the request URI before sending it to the upstream.                                              | `string`           | No       | `"/api"` → `"/v1"`                        |
 | `requestheaders.pass_origin_headers` | If `true`, passes original client request headers to the upstream.                                      | `boolean`          | No       | `true`                                     |
-| `requestheaders.set`            | A list of custom headers to add or override in the request sent to the upstream.                        | array of objects   | No       | See example below|
-| `responseheaders.add`           | A list of custom response headers to add in responses back to the client.                               | array of objects   | No       |  See example below   |
-| `responseheaders.hide`          | A list of upstream response headers to remove before passing to the client.                             | array of objects   | No       | `name: "X-Powered-By`                |
-| `responseheaders.pass`          | A list of upstream response headers to explicitly pass to the client.                                   | array of objects   | No       | `name: "Content-Type"`                |
-| `responseheaders.ignore`        | A list of restricted headers (e.g., `Cache-Control`, `Set-Cookie`) that NGINX should ignore.            | array of objects   | No       | `name: "Set-Cookie"`                  |
+| `requestheaders.set`            | A list of custom headers to add or override in the request sent to the upstream.                        | `array` of `objects`   | No       | See example below|
+| `responseheaders.add`           | A list of custom response headers to add in responses back to the client.                               | `array` of `objects`   | No       |  See example below   |
+| `responseheaders.hide`          | A list of upstream response headers to remove before passing to the client.                             | `array` of `objects`   | No       | `name: "X-Powered-By`                |
+| `responseheaders.pass`          | A list of upstream response headers to explicitly pass to the client.                                   | `array` of `objects`   | No       | `name: "Content-Type"`                |
+| `responseheaders.ignore`        | A list of restricted headers (e.g., `Cache-Control`, `Set-Cookie`) that NGINX should ignore.            | `array` of `objects`   | No       | `name: "Set-Cookie"`                  |
 
 
 [!IMPORTANT]
@@ -780,22 +786,29 @@ spec:
 <br>
 
 
-
+## Spec.routes.return
 The `return` field allows the route to **immediately respond with a custom response**, without forwarding or redirecting. This is ideal for status checks (like `/ping`), custom error pages, or mock responses.
 
 You can customize the **status code**, **content type**, **body**, and even **response headers**.
 
-### ✅ GitHub Markdown Table
 
 | Field| Description| Type| Required | Examples|
 |------|------------|-----|----------|---------|
 | `code`         | HTTP status code to return (100–599).                                      | `integer`      | No       | `200`, `404`, `503`          |
 | `type`         | MIME type of the response body.                                             | `string`       | No       | `"text/plain"`, `"application/json"` |
 | `body`         | The content to return in the response body.                                | `string`       | Yes      | `"pong"`, `"{\"status\": \"ok\"}"` |
-| `headers`      | Optional list of headers to include in the response.                       | array of objects| No       | `{ name: "X-Test", value: "1" }` |
+| `headers`      | Optional list of headers to include in the response.                       | `array` of `objects` | No       | See examples below |
 
-Example:
 
+> [!IMPORTANT]
+> - If `code` is not provided, NGINX defaults to 200 OK.
+> - `type` sets the Content-Type of the response. If omitted, NGINX will try to infer it.
+> - `headers` allows adding custom response headers (e.g., version tags, metadata).
+> - No upstream communication or route matching happens — this ends the request immediately.
+> - Perfect for health checks, mocking endpoints, under-construction pages, or legal notices.
+
+
+**Example:**
 ```yml
 spec:
   routes:
@@ -809,17 +822,6 @@ spec:
             value: nginx
 ```
 
-
-> [!IMPORTANT]
-> - If code is not provided, NGINX defaults to 200 OK.
-> - type sets the Content-Type of the response. If omitted, NGINX will try to infer it.
-> - headers allows adding custom response headers (e.g., version tags, metadata).
-> - No upstream communication or route matching happens — this ends the request immediately.
-> - Perfect for health checks, mocking endpoints, under-construction pages, or legal notices.
-
-
-
-
 ## Spec.routes.matches
 
 The `matches` field enables **conditional routing logic** based on request metadata — such as HTTP headers, cookies, or NGINX variables (e.g., method or query parameters). When a match condition is met, the request is handled using the specified `proxy` configuration.
@@ -830,7 +832,7 @@ The `matches` field enables **conditional routing logic** based on request metad
 | `condition.cookie`  | Name of the cookie to match.                                   | `string` | Conditional | `"session_id"`                |
 | `condition.variable`| Name of an NGINX variable to evaluate (e.g., `$request_method`).| `string` | Conditional | `"$request_method"`            |
 | `condition.value`   | Expected value to match.                                       | `string` | Yes      | `"admin"`, `"POST"`               |
-| `condition.proxy`   | Proxy configuration to apply when the condition matches.       | object   | Yes      | See `proxy` section               |
+| [condition.proxy](#specroutesproxy)   | Proxy configuration to apply when the condition matches.       | object   | Yes      | See `routes.proxy` section               |
 
 
 [!IMPORTANT]
@@ -839,9 +841,7 @@ The `matches` field enables **conditional routing logic** based on request metad
 > - Matching is based on **exact string comparison**.
 > - If no conditions match, the route does **not fallback** to another action — the request proceeds with default route behavior (if defined).
 
-
 **Example:**
-
 ```yaml
 spec:
   routes:
@@ -908,7 +908,14 @@ The `errorpages` field allows you to **override default error handling** for spe
 | `return.body`  | Response body to send.                                     | string          | Yes      | `"Page not found"`           |
 | `return.headers` | Optional headers to include in the error response.      | array of object | No       | `{ name: "X-Error", value: "true" }` |
 
-### 🔍 Example
+> [!IMPORTANT]
+> - Each rule applies to one or more status codes.
+> - You must define **either** `redirect` or `return`, but not both.
+> - `return` can include content and headers — useful for debugging or soft failover.
+> - `redirect` points users to a fallback page or external help page.
+
+
+**Example:**
 
 ```yaml
 spec:
@@ -927,29 +934,25 @@ spec:
             url: /error
             code: 302
 ```
+<br>
+<br>
 
-> [!IMPORTANT]
-> - Each rule applies to one or more status codes.
-> - You must define **either** `redirect` or `return`, but not both.
-> - `return` can include content and headers — useful for debugging or soft failover.
-> - `redirect` points users to a fallback page or external help page.
-
-
-`location_snippets`
-
-### 📘 Description
+## Spec.routes.location_snippets
 
 The `location_snippets` field allows you to **inject custom NGINX directives** into a route's generated `location` block. This is useful for fine-tuning settings like rate limiting, logging, connection limits, etc., on a per-route basis.
 
-> ⚠️ Use with care. Improper or conflicting directives can break configuration or override default logic.
-
-### ✅ GitHub Markdown Table
 
 | Field| Description| Type| Required | Examples|
 |------|------------|-----|----------|---------|
 | `location_snippets` | NGINX directives to inject directly into the route’s `location` block. | `string` | No       | `"limit_conn addr 10;"` |
 
-### 🔍 Example
+> [!IMPORTANT]
+> - ⚠️ Use with care. Improper or conflicting directives can break configuration or override default logic.
+> - Injects raw text after the location block is opened and before it closes.
+> - Accepts any valid NGINX directive allowed in a location context.
+> - Should not conflict with what the main schema generates (e.g., duplicate proxy_pass).
+
+**Example:**
 
 ```yaml
 spec:
@@ -961,16 +964,6 @@ spec:
         limit_conn addr 10;
         limit_req zone=default burst=5 nodelay;
 ```
-
-> [!IMPORTANT]
-> - Injects raw text after the location block is opened and before it closes.
-> - Accepts any valid NGINX directive allowed in a location context.
-> - Common use cases:
->   - Connection or request limits
->   - Caching behavior
->   - Custom log formats
-> - Should not conflict with what the main schema generates (e.g., duplicate proxy_pass).
-
 
 
 
