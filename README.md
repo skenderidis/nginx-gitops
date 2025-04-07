@@ -9,6 +9,15 @@ If you've ever maintained NGINX configurations by hand, SSH'd into production bo
 The answer lies in **automation**. Not just scripting, but full-stack, policy driven, CI/CD aware automation that turns every NGINX deployment into an artifact of code. This blog explores a three-tiered approach that transforms the way NGINX is deployed and operated across multiple environments.
 
 ## Table of contents
+- [Part 1: NGINX Instance Manager](#-part-1-smart-self-updating-nginx-instances-with-nginx-instance-manager-nim)
+- [Part 2: Using GIT](#️-part-2-git-as-the-source-of-truth--configuration-as-code-for-nginx)
+- [Part 3: Making NGINX Developer-Friendly](#-part-3-abstracting-configuration-with-yaml--making-nginx-developer-friendly)
+- [The Automation Pipeline](#the-automation-pipeline-from-yaml-to-running-config)
+  - [Triggering the Pipeline](#-triggering-the-pipeline---define-the-desired-state-yaml)
+  - [Step 1: Validate against Schema and render with Jinja2 Templates](#step-1-validate-against-schema-and-render-with-jinja2-templates)
+  - [Step 2: Push configuration to NIM](#step-2-push-configuration-to-nim)
+  - [Step 3: Verify Deployment](#step-3-verify-deployment)
+- [Conclusion](#conclusion)
 
 ### 📦 Part 1: Smart, Self-Updating NGINX Instances with NGINX Instance Manager (NIM)
 
@@ -56,7 +65,7 @@ Through Git-integrated pipelines, you push validated configuration into NIM via 
 With Git at the center, your entire NGINX infrastructure becomes repeatable, testable, and modular. DevOps teams can promote changes through environments (dev → stage → prod) just like application code. And the infrastructure team retains control over quality, security, and compliance through automation gates and code review.
 
 
-### 🧩 Part 3: Abstracting Configuration with YAML CRDs — Making NGINX Developer-Friendly
+### 🧩 Part 3: Abstracting Configuration with YAML — Making NGINX Developer-Friendly
 Let’s be honest—writing raw NGINX configuration can be intimidating. Directives are powerful, but they come with a steep learning curve and are prone to subtle syntax errors. Worse, they often require deep expertise that doesn’t scale across teams.
 
 This is why abstraction matters. Inspired by the Kubernetes CRD model, we created a YAML-based, declarative schema for describing NGINX configuration. Think of it as a Virtual Server Custom Resource Definition—a high-level way to define what you want, without needing to write the underlying config by hand.
@@ -112,8 +121,7 @@ So far, we’ve introduced the building blocks of a modern NGINX automation stac
 The answer lies in the automation pipeline—a set of steps that transforms intent (YAML) into reality (running NGINX config). Let’s break down the process:
 
 
-
-#### 📝 Step 0: Triggering the pipeline - Define the Desired State (YAML)
+#### 📝 Triggering the Pipeline - Define the Desired State (YAML)
 
 Before any automation kicks in, it all starts with intent, expressed as a structured declarative YAML file. This file captures what a service should look like when deployed behind NGINX.
 
@@ -167,8 +175,7 @@ This verification ensures:
 This step acts as a final gate, giving operators confidence that the rollout has completed as intended fully, consistently and without drift.
 
 
-
-## Conclusion: From Web Server to Delivery Platform
+## Conclusion
 NGINX has long been the go-to choice for high-performance web serving, reverse proxying, and API traffic management. But as infrastructure has evolved, so has the way we manage and deliver applications.
 
 By combining NGINX Instance Manager, GitOps workflows, and templated YAML CRDs, we've unlocked a model that is:
