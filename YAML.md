@@ -99,7 +99,6 @@ The **`spec`** section outlines the high-level configuration of the application.
 > [!NOTE]
 > For full details on each `field`, see their dedicated sections.
 <br>
-<br>
 
 ## Spec.host
 
@@ -124,7 +123,6 @@ template: vs
 spec:
   host: myapp.example.com
 ```
-<br>
 <br>
 
 ## Spec.alternative_hosts 
@@ -153,7 +151,6 @@ spec:
     - "*.api.example.com"
 ```
 <br>
-<br>
 
 ## Spec.listen 
 The `listen` field defines the **port number** that NGINX should bind to for incoming connections in this server block configuration. It controls whether NGINX listens on HTTP (typically port 80) or HTTPS (port 443), or on a custom port for specific use cases (e.g., 8080 for internal apps).
@@ -179,7 +176,6 @@ spec:
 ```
 
 > 💡 **Tip:** When using listen: 443, make sure TLS is enabled and a valid certificate is provided under spec.tls.
-<br>
 <br>
 
 ## Spec.tls
@@ -225,7 +221,6 @@ spec:
     ssl_session_timeout: 15m
 ```
 <br>
-<br>
 
 ## Spec.server_snippets
 
@@ -257,7 +252,6 @@ spec:
     error_log /var/log/nginx/error.log warn;
     add_header X-Server-ID $hostname;
 ```
-<br>
 <br>
 
 ## Spec.gunzip  TO FIX
@@ -339,7 +333,6 @@ spec:
         - "access_token"
 ```
 <br>
-<br>
 
 ## Spec.jwt
 The `jwt` field enables **JWT (JSON Web Token) authentication**, validating incoming tokens for authenticity and access control. This is a robust and modern method of securing APIs, often used in microservices and zero-trust architectures.
@@ -371,7 +364,6 @@ spec:
     token: $http_token
 ```
 <br>
-<br>
 
 ## Spec.accessControl
 
@@ -401,7 +393,6 @@ spec:
     deny:
       - 203.0.113.0/24
 ```
-<br>
 <br>
 
 ## Spec.rateLimit
@@ -449,7 +440,6 @@ spec:
     dryRun: true
     rejectCode: 504
 ```
-<br>
 <br>
 
 
@@ -528,7 +518,6 @@ spec:
         - address: backend2.example.com
 ```
 <br>
-<br>
 
 ## Spec.upstreams.servers
 The `servers` field defines the individual backend servers within an upstream. Each entry represents a host (or IP) that will receive proxied traffic. You can assign per-server settings like weight, failure handling, backup role, and DNS resolution options.
@@ -576,7 +565,6 @@ spec:
             service: http.tcp
 ```
 <br>
-<br>
 
 ## Spec.upstreams.sessioncookie
 
@@ -614,7 +602,6 @@ spec:
         secure: true
         samesite: strict
 ```
-<br>
 <br>
 
 ## Spec.upstreams.healthcheck
@@ -677,7 +664,6 @@ healthcheck:
   keepalive_time: 60s
 ```
 <br>
-<br>
 
 ## Spec.routes
 
@@ -710,7 +696,6 @@ Each route must include a path, and then one of the supported actions:
 > - `location_snippets` lets you customize route-level directives (e.g., rate limits, logging).
 > - `errorpages` allows defining route-specific error overrides (e.g., custom 404 handler).
 > - If multiple routes match a request, only the first match is applied.
-<br>
 <br>
 
 ## Spec.routes.proxy
@@ -767,7 +752,6 @@ spec:
             - name: Set-Cookie
 ```
 <br>
-<br>
 
 ## Spec.routes.redirect
 
@@ -797,7 +781,6 @@ spec:
         url: /new
         code: 301
 ```
-<br>
 <br>
 
 
@@ -874,7 +857,6 @@ spec:
               upstream: special_user_backend
 ```
 <br>
-<br>
 
 
 ## Spec.routes.splits
@@ -906,7 +888,6 @@ spec:
           proxy:
             upstream: canary_backend
 ```
-<br>
 <br>
 
 ## Spec.routes.errorpages
@@ -949,7 +930,6 @@ spec:
             url: /error
             code: 302
 ```
-<br>
 <br>
 
 ## Spec.routes.location_snippets
