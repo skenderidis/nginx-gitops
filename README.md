@@ -6,7 +6,9 @@ If you've ever maintained NGINX configurations by hand, SSH'd into production bo
 
 #### So how do we tame this complexity?
 
-The answer lies in **automation**. Not just scripting, but full-stack, policy driven, CI/CD aware automation that turns every NGINX deployment into an artifact of code. This blog explores a three-tiered approach that transforms the way NGINX is deployed and operated across environments:
+The answer lies in **automation**. Not just scripting, but full-stack, policy driven, CI/CD aware automation that turns every NGINX deployment into an artifact of code. This blog explores a three-tiered approach that transforms the way NGINX is deployed and operated across multiple environments.
+
+## Table of contents
 
 ### 📦 Part 1: Smart, Self-Updating NGINX Instances with NGINX Instance Manager (NIM)
 
@@ -104,7 +106,7 @@ With these three components—NIM for control, Git for versioning, and CRDs for 
 
 
 
-### From YAML to Running Config: The NGINX Automation Pipeline
+### The Automation Pipeline: From YAML to Running Config
 So far, we’ve introduced the building blocks of a modern NGINX automation stack: NIM for centralized control, Git for configuration versioning, and CRD-style YAML to make service definition approachable. But how do these pieces connect?
 
 The answer lies in the automation pipeline—a set of steps that transforms intent (YAML) into reality (running NGINX config). Let’s break down the process:
@@ -163,8 +165,6 @@ This verification ensures:
 - The entire fleet is in sync with the declared state
 
 This step acts as a final gate, giving operators confidence that the rollout has completed as intended fully, consistently and without drift.
-
-
 
 
 
