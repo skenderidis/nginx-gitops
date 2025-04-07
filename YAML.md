@@ -33,7 +33,7 @@ spec:
 ## Table of Contents
 
 - [Root Structure](#root-structure)
-- [Spec](#spec)
+- [spec](#spec)
 - [spec.host](#spechost)
 - [spec.alternative_hosts](#specalternative_hosts)
 - [spec.listen](#speclisten)
@@ -98,9 +98,8 @@ The **`spec`** section outlines the high-level configuration of the application.
 
 > [!NOTE]
 > For full details on each `field`, see their dedicated sections.
-
-
-
+<br>
+<br>
 
 ## Spec.host
 
@@ -125,7 +124,8 @@ template: vs
 spec:
   host: myapp.example.com
 ```
-
+<br>
+<br>
 
 ## Spec.alternative_hosts 
 The `alternative_hosts` field defines a list of additional domain names that should be associated with the same server block configuration. These domain names are included in the **server_name** directive along with the primary host, allowing NGINX to handle multiple domain variations using a single configuration block.
@@ -152,7 +152,8 @@ spec:
     - cafe2.example.com
     - "*.api.example.com"
 ```
-
+<br>
+<br>
 
 ## Spec.listen 
 The `listen` field defines the **port number** that NGINX should bind to for incoming connections in this server block configuration. It controls whether NGINX listens on HTTP (typically port 80) or HTTPS (port 443), or on a custom port for specific use cases (e.g., 8080 for internal apps).
@@ -178,7 +179,8 @@ spec:
 ```
 
 > 💡 **Tip:** When using listen: 443, make sure TLS is enabled and a valid certificate is provided under spec.tls.
-
+<br>
+<br>
 
 ## Spec.tls
 The `tls` field defines the TLS (Transport Layer Security) settings for this server block configuration. When enabled, NGINX will listen for **HTTPS** traffic on the configured port (commonly 443) and terminate SSL using the specified certificate.
@@ -222,7 +224,8 @@ spec:
     ssl_session_cache: shared:SSL:10m
     ssl_session_timeout: 15m
 ```
-
+<br>
+<br>
 
 ## Spec.server_snippets
 
@@ -254,7 +257,8 @@ spec:
     error_log /var/log/nginx/error.log warn;
     add_header X-Server-ID $hostname;
 ```
-
+<br>
+<br>
 
 ## Spec.gunzip  TO FIX
 The `gunzip` field enables or disables decompression of gzipped responses before they are delivered to the client. This is useful when upstream services return gzipped content, but the client (e.g., older browsers or debugging tools) expects uncompressed data.
@@ -334,7 +338,8 @@ spec:
       query:
         - "access_token"
 ```
-
+<br>
+<br>
 
 ## Spec.jwt
 The `jwt` field enables **JWT (JSON Web Token) authentication**, validating incoming tokens for authenticity and access control. This is a robust and modern method of securing APIs, often used in microservices and zero-trust architectures.
@@ -365,7 +370,8 @@ spec:
     realm: "My API"
     token: $http_token
 ```
-
+<br>
+<br>
 
 ## Spec.accessControl
 
@@ -395,6 +401,8 @@ spec:
     deny:
       - 203.0.113.0/24
 ```
+<br>
+<br>
 
 ## Spec.rateLimit
 
@@ -441,7 +449,8 @@ spec:
     dryRun: true
     rejectCode: 504
 ```
-
+<br>
+<br>
 
 
 ## Spec.upstreams
@@ -518,6 +527,8 @@ spec:
         - address: backend1.example.com
         - address: backend2.example.com
 ```
+<br>
+<br>
 
 ## Spec.upstreams.servers
 The `servers` field defines the individual backend servers within an upstream. Each entry represents a host (or IP) that will receive proxied traffic. You can assign per-server settings like weight, failure handling, backup role, and DNS resolution options.
@@ -564,6 +575,8 @@ spec:
             enable: true
             service: http.tcp
 ```
+<br>
+<br>
 
 ## Spec.upstreams.sessioncookie
 
@@ -601,6 +614,8 @@ spec:
         secure: true
         samesite: strict
 ```
+<br>
+<br>
 
 ## Spec.upstreams.healthcheck
 
