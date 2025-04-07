@@ -33,7 +33,7 @@ spec:
 ## Table of Contents
 
 - [Root Structure](#root-structure)
-- [Spec]
+- [Spec](#spec)
 - [spec.host](#spechost)
 - [spec.alternative_hosts](#specalternative_hosts)
 - [spec.listen](#speclisten)
@@ -447,7 +447,7 @@ You can think of each upstream as a named cluster of backend endpoints with its 
 | Field| Description| Type| Required | Examples|
 |------|------------|-----|----------|---------|
 | `name`                      | Unique name for the upstream group. Referenced by `routes.proxy.upstream`.                      | `string` | Yes  | `"backend_v1"`|
-| [servers](#specupstreamsservers)                   | List of backend server addresses and per-server settings.     | `array` of `object`   | Yes  | See example below            |
+| [servers](#specupstreamsservers)                   | List of backend server addresses and per-server settings.     | `array` of `object`   | Yes  | See `servers` section            |
 | `lb_method`             | Load balancing method (e.g., `round_robin`, `least_conn`).                  | `string` | No | `"least_conn"` |
 | `connect_timeout`       | Max time to wait for a connection to a backend.                        | `string` | No | `"30s"`|
 | `read_timeout`          | Max time to wait for a response from the backend.                       | `string` | No | `"30s"`|
@@ -461,8 +461,8 @@ You can think of each upstream as a named cluster of backend endpoints with its 
 | `tls.enable`            | If `true`, connect to the upstream using HTTPS.     | `boolean` | No | `false` |
 | `queue.size`            | Max number of requests to queue when all upstream servers are busy.   | `integer` | No | `30` |
 | `queue.timeout`         | Time a request can wait in the queue before timing out.    | `string` | No | `"60s"` |
-| [healthcheck](#specupstramshealthcheck) | Health check configuration to monitor upstream availability.   | `object` | No | See healthcheck section      |
-| [sessioncookie](#specupstreamssessioncookie) | Configuration for session stickiness.    | `string` | No | See sessionCookie section section|
+| [healthcheck](#specupstramshealthcheck) | Health check configuration to monitor upstream availability.   | `object` | No | See `healthcheck` section      |
+| [sessioncookie](#specupstreamssessioncookie) | Configuration for session stickiness.    | `string` | No | See `sessionCookie`  section|
 
 
 > [!IMPORTANT]
@@ -668,17 +668,16 @@ Each route must include a path, and then one of the supported actions:
 > - `matches` – apply logic based on headers, cookies, etc.
 > - `splits` – divide traffic across upstreams based on weight
 
-| Field            | Description                                                                                     | Type               | Required | Examples                   |
-|------------------|-------------------------------------------------------------------------------------------------|--------------------|----------|----------------------------|
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
 | `path`           | The request URI path to match (e.g., `/api`, `/login`). Must start with `/`.                    | `string`           | Yes      | `"/api"`                   |
-| `proxy`          | Defines the upstream and request handling logic for forwarding the request.                     | object             | Conditional | See `proxy` section       |
-| `redirect`       | Sends an HTTP redirect response to the client.                                                  | object             | Conditional | See `redirect` section    |
-| `return`         | Immediately returns a custom response to the client.                                            | object             | Conditional | See `return` section      |
-| `matches`        | Allows routing decisions based on header/cookie/variable conditions.                            | array of objects   | Conditional | See `matches` section     |
-| `splits`         | Enables weighted traffic splitting between upstreams.                                           | array of objects   | Conditional | See `splits` section      |
-| `location_snippets` | Raw NGINX directives to inject inside this location block.                                   | string             | No       | `"limit_conn conn 5;"`    |
-| `errorpages`     | Custom error response overrides for this route.                                                 | array of objects   | No       | `[{ codes: [404], return: {...} }]` |
-
+| `proxy`          | Defines the upstream and request handling logic for forwarding the request.                     | `object`             | Conditional | See `proxy` section       |
+| `redirect`       | Sends an HTTP redirect response to the client.                                                  | `object`             | Conditional | See `redirect` section    |
+| `return`         | Immediately returns a custom response to the client.                                            | `object`             | Conditional | See `return` section      |
+| `matches`        | Allows routing decisions based on header/cookie/variable conditions.                            | `array` of `objects`   | Conditional | See `matches` section     |
+| `splits`         | Enables weighted traffic splitting between upstreams.                                           | `array` of `objects`   | Conditional | See `splits` section      |
+| `location_snippets` | Raw NGINX directives to inject inside this location block.                                   | `string`             | No       | `"limit_conn conn 5;"`    |
+| `errorpages`     | Custom error response overrides for this route.                                                 | `array` of `objects`   | No       | See `errorpages` section |
 
 
 > [!IMPORTANT]
@@ -696,8 +695,8 @@ The proxy field is used to forward incoming requests to an upstream server group
 The proxy object supports additional controls like path rewriting, header manipulation (request/response), and selective visibility of upstream headers.
 
 
-| Field                           | Description                                                                                              | Type               | Required | Examples                                  |
-|----------------------------------|----------------------------------------------------------------------------------------------------------|--------------------|----------|-------------------------------------------|
+| Field| Description| Type| Required | Examples|
+|------|------------|-----|----------|---------|
 | `upstream`                       | Name of the upstream to which the request should be proxied. Must match a `spec.upstreams.name`.        | `string`           | Yes      | `"backend_v1"`                            |
 | `rewritepath`                    | Rewrites the request URI before sending it to the upstream.                                              | `string`           | No       | `"/api"` → `"/v1"`                        |
 | `requestheaders.pass_origin_headers` | If `true`, passes original client request headers to the upstream.                                      | `boolean`          | No       | `true`                                     |
