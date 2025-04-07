@@ -79,7 +79,7 @@ The **`spec`** section outlines the high-level configuration of the application.
 | [spec.host](#spechost)| The hostname (domain name) that the server block is designed to handle. It should be unique across all configurations that are deployed on the same NGINX. The configuration supports also wildcard domains. <br>Expected values: <br>&nbsp;&nbsp; - myapp.example.com<br> &nbsp;&nbsp;&nbsp;- "*.example.com"<br> &nbsp;&nbsp;&nbsp;- myapp | `string` | Yes |
 | [spec.alternative_hosts](#specalternative_hosts) | An optional list of additional domain names that the application serves. These domains must also be unique across all configurations that are deployed on the same NGINX. | `array` of `string` | No |
 | [spec.listen](#speclisten) | Specifies the port number NGINX should listen on. Defaults to `80` for HTTP and `443` for HTTPS. | `integer` | No |
-| [spec.tls](#spectls)  | Defines the TLS termination settings, including the certificate name and supported protocols and ciphers. <br> Defaults to `off` if not set. | object ([tls](#spectls)) | No |
+| [spec.tls](#spectls)  | Defines the TLS termination settings, including the certificate name and supported protocols and ciphers. <br> Defaults to `off` if not set. | object | No |
 | [spec.server_snippets](#specserver_snippets) | Allows custom NGINX directives to be added to the server block configuration. | `string` | No |
 | [spec.gunzip](#specgunzip)| Controls GZIP decompression on responses. Useful when upstreams send compressed responses and decompression is required for processing or caching. | `object` | No |
 | [spec.waf](#specwaf) | Enables NGINX App Protect WAF configuration. Expects the policy references as well as the log settings | `object` | No |
@@ -461,7 +461,7 @@ You can think of each upstream as a named cluster of backend endpoints with its 
 | `tls.enable`            | If `true`, connect to the upstream using HTTPS.     | `boolean` | No | `false` |
 | `queue.size`            | Max number of requests to queue when all upstream servers are busy.   | `integer` | No | `30` |
 | `queue.timeout`         | Time a request can wait in the queue before timing out.    | `string` | No | `"60s"` |
-| [healthcheck](#specupstramshealthcheck) | Health check configuration to monitor upstream availability.   | `object` | No | See `healthcheck` section      |
+| [healthcheck](#specupstreamshealthcheck) | Health check configuration to monitor upstream availability.   | `object` | No | See `healthcheck` section      |
 | [sessioncookie](#specupstreamssessioncookie) | Configuration for session stickiness.    | `string` | No | See `sessionCookie`  section|
 
 
@@ -655,8 +655,10 @@ healthcheck:
   persistent: true
   keepalive_time: 60s
 ```
+<br>
+<br>
 
-## spec.routes
+## Spec.routes
 
 The routes field defines a list of path-based routing rules within a server block configuration. Each route determines how NGINX should process requests that match a specific URL path — whether by proxying to an upstream, redirecting, returning a static response, conditionally matching, or splitting traffic.
 
@@ -687,9 +689,10 @@ Each route must include a path, and then one of the supported actions:
 > - `location_snippets` lets you customize route-level directives (e.g., rate limits, logging).
 > - `errorpages` allows defining route-specific error overrides (e.g., custom 404 handler).
 > - If multiple routes match a request, only the first match is applied.
+<br>
+<br>
 
-
-## spec.routes.proxy
+## Spec.routes.proxy
 The proxy field is used to forward incoming requests to an upstream server group defined under spec.upstreams. This is the most common routing action in NGINX configurations and serves as the foundation for reverse proxy behavior.
 
 The proxy object supports additional controls like path rewriting, header manipulation (request/response), and selective visibility of upstream headers.
@@ -700,7 +703,7 @@ The proxy object supports additional controls like path rewriting, header manipu
 | `upstream`                       | Name of the upstream to which the request should be proxied. Must match a `spec.upstreams.name`.        | `string`           | Yes      | `"backend_v1"`                            |
 | `rewritepath`                    | Rewrites the request URI before sending it to the upstream.                                              | `string`           | No       | `"/api"` → `"/v1"`                        |
 | `requestheaders.pass_origin_headers` | If `true`, passes original client request headers to the upstream.                                      | `boolean`          | No       | `true`                                     |
-| `requestheaders.set`            | A list of custom headers to add or override in the request sent to the upstream.                        | array of objects   | No       | `{ name: "X-Request-ID", value: "$request_id" }` |
+| `requestheaders.set`            | A list of custom headers to add or override in the request sent to the upstream.                        | array of objects   | No       | ` - name: "X-Request-ID" <br> value: "$request_id"` |
 | `responseheaders.add`           | A list of custom response headers to add in responses back to the client.                               | array of objects   | No       | `{ name: "X-App-Version", value: "v2" }`  |
 | `responseheaders.hide`          | A list of upstream response headers to remove before passing to the client.                             | array of objects   | No       | `{ name: "X-Powered-By" }`                |
 | `responseheaders.pass`          | A list of upstream response headers to explicitly pass to the client.                                   | array of objects   | No       | `{ name: "Content-Type" }`                |
@@ -741,8 +744,10 @@ spec:
 > - `ignore` suppresses standard NGINX-controlled headers (like Set-Cookie, Cache-Control) if needed.
 > -  This configuration gives you full control over **both upstream and downstream header behavior**, making it suitable for internal APIs, secured backends, or third-party integrations.
 
+<br>
+<br>
 
-## spec.routes.redirect
+## Spec.routes.redirect
 
 The `redirect` field configures an **HTTP redirect response** for incoming requests matching the route's `path`. This is useful for rerouting outdated URLs, migrating endpoints, or enforcing trailing slashes or HTTPS.
 
