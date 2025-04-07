@@ -1,4 +1,4 @@
-# Using the NGINX YAML Configuration
+# Configuring NGINX with YAML
 
 This document is a guide on how to use the custom YAML files to define a complete NGINX configuration with routing, upstreams, authentication, rate limiting, and much more.
 
